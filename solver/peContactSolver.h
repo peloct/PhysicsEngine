@@ -7,7 +7,7 @@ class StackAllocator;
 
 #define BOUNCE_THRESHOLD -1.0f
 #define BAUMGARTE 0.2f
-#define SOME_THRESHOLD -0.00001f
+#define LINEAR_SLOP 0.005f
 
 struct ContactSolverDef
 {

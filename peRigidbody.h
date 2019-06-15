@@ -42,6 +42,7 @@ public:
 	void synchronizeTransform(); // body position 갱신
 	void synchronizeFixture(); // aabb 갱신
 	bool isAwake() const { return isAwakeFlag; }
+	RigidbodyType getBodyType() const { return bodyType; }
 
 	void setAwake(bool value)
 	{

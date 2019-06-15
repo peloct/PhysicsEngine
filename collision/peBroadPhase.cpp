@@ -32,6 +32,11 @@ int32 BroadPhase::insertAABB(const AABB& aabb, Fixture* fixture)
 
 void BroadPhase::updateAABB(int32 aabbID, const AABB& aabb)
 {
+	const AABB& fatAABB = aabbTree.getAABB(aabbID);
+
+	if (fatAABB.contains(aabb))
+		return;
+
 	aabbTree.updateLeaf(aabbID, aabb);
 	setDirty(aabbID);
 }

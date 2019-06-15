@@ -116,6 +116,18 @@ void ContactManager::checkCollision()
 
 	while (each)
 	{
+		const Rigidbody* bodyA = each->fixtureA->getRigidbody();
+		const Rigidbody* bodyB = each->fixtureB->getRigidbody();
+
+		bool isActiveBodyA = bodyA->isAwake() && bodyA->getBodyType() != RigidbodyType::staticBody;
+		bool isActiveBodyB = bodyB->isAwake() && bodyB->getBodyType() != RigidbodyType::staticBody;
+
+		if (!isActiveBodyA && !isActiveBodyB)
+		{
+			each = each->next;
+			continue;
+		}
+
 		if (!broadPhase.testOverlap(each->fixtureA->aabbID, each->fixtureB->aabbID))
 		{
 			Contact* contactToRemove = each;

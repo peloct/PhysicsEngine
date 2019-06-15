@@ -19,6 +19,9 @@ float32 Contact::calcRestitution() const
 
 void Contact::updateContact()
 {
+	Rigidbody* bodyA = fixtureA->getRigidbody();
+	Rigidbody* bodyB = fixtureB->getRigidbody();
+
 	ContactCacheKey prevKey = contactCacheKey;
 	ContactPoint points[8];
 	
@@ -52,8 +55,8 @@ void Contact::updateContact()
 
 	if (wasTouching != isTouching)
 	{
-		fixtureA->getRigidbody()->setAwake(true);
-		fixtureB->getRigidbody()->setAwake(true);
+		bodyA->setAwake(true);
+		bodyB->setAwake(true);
 	}
 }
 

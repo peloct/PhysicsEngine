@@ -30,6 +30,11 @@ public:
 		maxPos.z = peMaxf(a.maxPos.z, b.maxPos.z);
 	}
 
+	bool contains(const AABB& aabb) const
+	{
+		return minPos <= aabb.minPos && aabb.maxPos <= maxPos;
+	}
+
 	float32 getVolume()
 	{
 		float32 dx = maxPos.x - minPos.x;

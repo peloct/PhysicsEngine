@@ -354,7 +354,7 @@ bool ContactSolver::solvePositionConstraints()
 			float32 refDeltaPerLambda = refInvMass + Vector3::dot(Vector3::cross(dqRef, rRef), normal);
 			float32 incDeltaPerLambda = incInvMass + Vector3::dot(Vector3::cross(dqInc, rInc), normal);
 
-			float32 c = peClamp(BAUMGARTE * separation, -0.2f, 0.0f);
+			float32 c = peClamp(BAUMGARTE * (separation + LINEAR_SLOP), -0.2f, 0.0f);
 
 			float32 lambda = -c / (refDeltaPerLambda + incDeltaPerLambda);
 
@@ -373,5 +373,5 @@ bool ContactSolver::solvePositionConstraints()
 		orientations[incIndex] = qInc;
 	}
 
-	return minSeparation > SOME_THRESHOLD;
+	return minSeparation > -1.5 * LINEAR_SLOP;
 }
