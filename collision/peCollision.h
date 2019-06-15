@@ -20,6 +20,16 @@ public:
 		maxPos.z = peMaxf(a.z, b.z);
 	}
 
+	void combine(const AABB& aabb)
+	{
+		minPos.x = peMinf(minPos.x, aabb.minPos.x);
+		minPos.y = peMinf(minPos.y, aabb.minPos.y);
+		minPos.z = peMinf(minPos.z, aabb.minPos.z);
+		maxPos.x = peMaxf(maxPos.x, aabb.maxPos.x);
+		maxPos.y = peMaxf(maxPos.y, aabb.maxPos.y);
+		maxPos.z = peMaxf(maxPos.z, aabb.maxPos.z);
+	}
+
 	void combine(const AABB& a, const AABB& b)
 	{
 		minPos.x = peMinf(a.minPos.x, b.minPos.x);
@@ -35,12 +45,21 @@ public:
 		return minPos <= aabb.minPos && aabb.maxPos <= maxPos;
 	}
 
-	float32 getVolume()
+	float32 getVolume() const
 	{
 		float32 dx = maxPos.x - minPos.x;
 		float32 dy = maxPos.y - minPos.y;
 		float32 dz = maxPos.z - minPos.z;
 		return dx * dy * dz;
+	}
+
+	float32 getSurfaceArea() const
+	{
+		float32 dx = maxPos.x - minPos.x;
+		float32 dy = maxPos.y - minPos.y;
+		float32 dz = maxPos.z - minPos.z;
+
+		return 2.0f * (dx * dy + dy * dz + dx * dz);
 	}
 
 	static bool isOverlapped(const AABB& a, const AABB& b)

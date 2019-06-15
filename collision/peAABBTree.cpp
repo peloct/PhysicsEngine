@@ -2,8 +2,6 @@
 #include<memory.h>
 #include"../common/peGrowableStack.h"
 
-// box2d 참고
-
 AABBTree::AABBTree() : nodeCapacity(16), nodeCount(0)
 {
 	nodes = (AABBTreeNode*)peAlloc(nodeCapacity * sizeof(AABBTreeNode));
@@ -126,22 +124,51 @@ void AABBTree::insertLeaf(int32 leafID)
 	AABB leafAABB = nodes[leafID].aabb;
 	int32 index = root;
 
-	// box2d 의 sibling 탐색 휴리스틱 사용, 좀 더 좋은 휴리스틱이 있을까
-	// http://allenchou.net/2014/02/game-physics-broadphase-dynamic-aabb-tree/ 참고
 	while (!nodes[index].isLeaf())
 	{
+		AABB combined;
+		combined.combine(nodes[index].aabb, leafAABB);
+
+		float32 cost = combined.getSurfaceArea();
+		float32 inheritedCost = cost - nodes[index].aabb.getSurfaceArea();
+
 		int32 child1 = nodes[index].child1;
 		int32 child2 = nodes[index].child2;
 
-		AABB combined1;
-		combined1.combine(nodes[child1].aabb, leafAABB);
-		float32 volumeDiff1 = combined1.getVolume() - nodes[child1].aabb.getVolume();
+		float32 cost1;
+		
+		if (nodes[child1].isLeaf())
+		{
+			AABB aabb;
+			aabb.combine(nodes[child1].aabb, leafAABB);
+			cost1 = inheritedCost + aabb.getSurfaceArea();
+		}
+		else
+		{
+			AABB aabb;
+			aabb.combine(nodes[child1].aabb, leafAABB);
+			cost1 = inheritedCost + aabb.getSurfaceArea() - nodes[child1].aabb.getSurfaceArea();
+		}
 
-		AABB combined2;
-		combined2.combine(nodes[child2].aabb, leafAABB);
-		float32 volumeDiff2 = combined2.getVolume() - nodes[child2].aabb.getVolume();
+		float32 cost2;
 
-		if (volumeDiff1 < volumeDiff2)
+		if (nodes[child2].isLeaf())
+		{
+			AABB aabb;
+			aabb.combine(nodes[child2].aabb, leafAABB);
+			cost2 = inheritedCost + aabb.getSurfaceArea();
+		}
+		else
+		{
+			AABB aabb;
+			aabb.combine(nodes[child2].aabb, leafAABB);
+			cost2 = inheritedCost + aabb.getSurfaceArea() - nodes[child2].aabb.getSurfaceArea();
+		}
+
+		if (cost < cost1 && cost < cost2)
+			break;
+		
+		if (cost1 < cost2)
 			index = child1;
 		else
 			index = child2;
@@ -180,16 +207,16 @@ void AABBTree::insertLeaf(int32 leafID)
 	while (index != NULL_NODE)
 	{
 		index = balance(index);
-
+	
 		int32 child1 = nodes[index].child1;
 		int32 child2 = nodes[index].child2;
-
+	
 		assert(child1 != NULL_NODE);
 		assert(child2 != NULL_NODE);
-
+	
 		nodes[index].height = 1 + peMaxf(nodes[child1].height, nodes[child2].height);
 		nodes[index].aabb.combine(nodes[child1].aabb, nodes[child2].aabb);
-
+	
 		index = nodes[index].parent;
 	}
 }
