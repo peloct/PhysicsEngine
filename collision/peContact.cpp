@@ -1,6 +1,7 @@
 #include"peContact.h"
 #include"../peFixture.h"
 #include"../memory/peBlockAllocator.h"
+#include"../peRigidbody.h"
 #include"peBoxBoxContact.h"
 
 ContactFactory Contact::factoryMap[Shape::Type::shapeCount][Shape::Type::shapeCount];
@@ -34,6 +35,8 @@ void Contact::updateContact()
 		}
 	}
 
+	bool wasTouching = contactPointCount > 0;
+
 	evaluate();
 
 	if (prevKey == contactCacheKey)
@@ -43,6 +46,14 @@ void Contact::updateContact()
 			contactPoints[i].normalImpulse = points[i].normalImpulse;
 			contactPoints[i].tangentImpulse = points[i].tangentImpulse;
 		}
+	}
+
+	bool isTouching = contactPointCount > 0;
+
+	if (wasTouching != isTouching)
+	{
+		fixtureA->getRigidbody()->setAwake(true);
+		fixtureB->getRigidbody()->setAwake(true);
 	}
 }
 

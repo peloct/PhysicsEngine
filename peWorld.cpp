@@ -2,14 +2,16 @@
 #include"collision/peContact.h"
 #include"solver/peIsland.h"
 #include"common/peTimer.h"
+#include"common/peTimeStep.h"
 #include<new>
 
 #define NULL_ISLAND -1
 
-World::World() : contactManager(&blockAllocator), gravity()
+World::World() : contactManager(&blockAllocator), gravity(), profile()
 {
 	rigidbodyCount = 0;
 	rigidbodies = nullptr;
+	prevDTInv = 0.0f;
 }
 
 World::~World()
@@ -18,14 +20,20 @@ World::~World()
 		deleteBody(rigidbodies);
 }
 
-void World::step(const TimeStep& timeStep)
+void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 {
 	Timer timer2;
 	Timer timer;
 	profile.reset();
 
-	if (timeStep.dt == 0.0f)
+	if (dt == 0.0f)
 		return;
+
+	TimeStep timeStep;
+	timeStep.dt = dt;
+	timeStep.ratio = dt * prevDTInv;
+	timeStep.velocityIteration = velocityIteration;
+	timeStep.positionIteration = positionIteration;
 
 	timer2.reset();
 	timer.reset();
@@ -48,6 +56,9 @@ void World::step(const TimeStep& timeStep)
 			continue;
 
 		if (eachBody->bodyType == RigidbodyType::staticBody)
+			continue;
+
+		if (eachBody->isAwake() == false)
 			continue;
 
 		island.clear();
@@ -103,6 +114,8 @@ void World::step(const TimeStep& timeStep)
 		eachBody->force.setZero();
 		eachBody->torque.setZero();
 	}
+
+	prevDTInv = 1 / dt;
 
 	timer.reset();
 	contactManager.updateContact();

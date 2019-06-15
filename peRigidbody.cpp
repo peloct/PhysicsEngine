@@ -37,6 +37,8 @@ Rigidbody::Rigidbody(const RigidbodyDef& def)
 	contacts = nullptr;
 
 	islandID = -1;
+	isAwakeFlag = true;
+	sleepTimer = 0.0f;
 }
 
 Rigidbody::~Rigidbody()

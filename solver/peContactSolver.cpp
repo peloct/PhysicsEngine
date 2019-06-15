@@ -56,8 +56,8 @@ ContactSolver::ContactSolver(const ContactSolverDef& def)
 			ContactVelocityConstraintPoint* vcp = vc->contactPoints + j;
 			ContactPoint* cp = contact->contactPoints + j;
 
-			vcp->normalImpulse = cp->normalImpulse;
-			vcp->tangentImpulse = cp->tangentImpulse;
+			vcp->normalImpulse = def.timeStep.ratio * cp->normalImpulse;
+			vcp->tangentImpulse = def.timeStep.ratio * cp->tangentImpulse;
 			
 			vcp->normalMass = 0;
 			vcp->tangentMass.setZero();

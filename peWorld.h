@@ -6,7 +6,6 @@
 #include"collision/peContactManager.h"
 #include"memory/peStackAllocator.h"
 #include"memory/peBlockAllocator.h"
-#include"common/peTimeStep.h"
 #include"common/peProfile.h"
 
 class World
@@ -15,7 +14,7 @@ public:
 	World();
 	~World();
 
-	void step(const TimeStep& timeStep);
+	void step(float32 dt, int32 velocityIteration, int32 positionIteration);
 	Rigidbody* createBody(const RigidbodyDef& def);
 	void deleteBody(Rigidbody* body);
 	void setGravity(const Vector3& gravity)
@@ -33,6 +32,7 @@ private:
 	Rigidbody* rigidbodies;
 
 	Vector3 gravity;
+	float32 prevDTInv;
 
 	ContactManager contactManager;
 	StackAllocator stackAllocator;

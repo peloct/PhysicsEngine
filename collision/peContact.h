@@ -62,7 +62,7 @@ protected:
 	friend class ContactSolver;
 	friend class Debug;
 
-	Contact(Fixture* fixtureA, Fixture* fixtureB)
+	Contact(Fixture* fixtureA, Fixture* fixtureB) : contactCacheKey()
 	{
 		this->fixtureA = fixtureA;
 		this->fixtureB = fixtureB;

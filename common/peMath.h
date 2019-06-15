@@ -75,6 +75,11 @@ public:
 	}
 };
 
+static Vector2 operator*(const float32 lhs, const Vector2 rhs)
+{
+	return Vector2(rhs.x * lhs, rhs.y * lhs);
+}
+
 class Matrix2x2
 {
 public:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include"../collision/peContact.h"
+#include"../common/peTimeStep.h"
 
 class StackAllocator;
 
@@ -10,6 +11,7 @@ class StackAllocator;
 
 struct ContactSolverDef
 {
+	TimeStep timeStep;
 	int32 contactCount;
 	Contact** contactsInIsland;
 	StackAllocator* stackAllocator;

@@ -41,6 +41,24 @@ public:
 	void getWorldToLocal(Matrix4x4* matrix) const;
 	void synchronizeTransform(); // body position 갱신
 	void synchronizeFixture(); // aabb 갱신
+	bool isAwake() const { return isAwakeFlag; }
+
+	void setAwake(bool value)
+	{
+		if (value)
+		{
+			sleepTimer = 0.0f;
+			isAwakeFlag = true;
+		}
+		else
+		{
+			linearVelocity.setZero();
+			angularVelocity.setZero();
+			force.setZero();
+			torque.setZero();
+			isAwakeFlag = false;
+		}
+	}
 
 private:
 	friend class World;
@@ -86,7 +104,10 @@ private:
 	Rigidbody* next;
 	Rigidbody* prev;
 
+	// solver
 	int32 islandID;
+	bool isAwakeFlag;
+	float32 sleepTimer;
 
 	void updateTransformDependants();
 };

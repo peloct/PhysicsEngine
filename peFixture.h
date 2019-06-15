@@ -30,6 +30,7 @@ public:
 	void synchronize();
 	const Shape* getShape() const { return shape; }
 	const Rigidbody* getRigidbody() const { return rigidbody; }
+	Rigidbody* getRigidbody() { return rigidbody; }
 
 	Vector3 getBodyPosition() const;
 	Vector3 getPosition() const;

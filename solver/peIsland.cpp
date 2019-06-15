@@ -5,6 +5,13 @@
 #include"../common/peProfile.h"
 #include"../common/peTimer.h"
 
+// 0.01 degree per sec
+#define SLEEP_ANGULARVEL_TOL 2.0f / 180.0f * 3.141592f
+#define SLEEP_TIME 2.0f
+
+const float32 sleepLinearVelTolSqr = 0.01f * 0.01f;
+const float32 sleepAngularVelTolSqr = SLEEP_ANGULARVEL_TOL * SLEEP_ANGULARVEL_TOL;
+
 Island::Island(int32 bodyCapacity, int32 contactCapacity, StackAllocator* stackAllocator)
 {
 	this->stackAllocator = stackAllocator;
@@ -62,6 +69,7 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 	}
 
 	ContactSolverDef contactSolverDef;
+	contactSolverDef.timeStep = timeStep;
 	contactSolverDef.contactCount = contactCount;
 	contactSolverDef.contactsInIsland = contacts;
 	contactSolverDef.stackAllocator = stackAllocator;
@@ -77,7 +85,7 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 	contactSolver.warmStart();
 
 	timer.reset();
-	for (int i = 0; i < timeStep.velConstraintIterCnt; ++i)
+	for (int i = 0; i < timeStep.velocityIteration; ++i)
 		contactSolver.solveVelocityConstraints();
 	profile->solvingVC += timer.getMilliseconds();
 
@@ -101,7 +109,7 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 
 	timer.reset();
 	bool positionSolved = false;
-	for (int i = 0; i < timeStep.posConstraintIterCnt; ++i)
+	for (int i = 0; i < timeStep.positionIteration; ++i)
 		if (contactSolver.solvePositionConstraints())
 		{
 			positionSolved = true;
@@ -124,5 +132,38 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 		each->angularVelocity = w;
 		each->updateTransformDependants();
 		each->synchronizeTransform();
+	}
+
+	float32 minSleepTime = 100000.0f;
+	for (int i = 0; i < rigidbodyCount; ++i)
+	{
+		Rigidbody* each = rigidbodies[i];
+
+		if (each->bodyType == RigidbodyType::staticBody)
+			continue;
+
+		if (each->linearVelocity.sqrMagnitude() > sleepLinearVelTolSqr || each->angularVelocity.sqrMagnitude() > sleepAngularVelTolSqr)
+		{
+			each->sleepTimer = 0.0f;
+			minSleepTime = 0.0f;
+		}
+		else
+		{
+			each->sleepTimer += dt;
+			minSleepTime = peMinf(minSleepTime, each->sleepTimer);
+		}
+	}
+
+	if (minSleepTime > SLEEP_TIME && positionSolved)
+	{
+		for (int i = 0; i < rigidbodyCount; ++i)
+		{
+			Rigidbody* each = rigidbodies[i];
+
+			if (each->bodyType == RigidbodyType::staticBody)
+				continue;
+
+			each->setAwake(false);
+		}
 	}
 }
