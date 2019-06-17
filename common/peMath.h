@@ -558,22 +558,6 @@ public:
 		m33 = 1.0f;
 	}
 
-	// fov : frustrum 의 세로 각도 (deg)
-	// aspect : height / width
-	// near, far : 양의 값으로 된 가장 앞, 먼 거리
-	static Matrix4x4 getProjectionMatrix(float32 fov, float32 aspect, float32 n, float32 f)
-	{
-		Matrix4x4 ret;
-		float32 yRat = peTanDegf(fov * 0.5f);
-		float32 xRat = yRat * aspect;
-		ret.m00 = 1 / xRat;
-		ret.m11 = 1 / yRat;
-		ret.m22 = -(f + n) / (f - n);
-		ret.m23 = -2 * f * n / (f - n);
-		ret.m32 = -1;
-		return ret;
-	}
-
 	void setTransform(const Matrix3x3& rotation, const Vector3& translation)
 	{
 		m00 = rotation.m00;
