@@ -59,7 +59,8 @@ class Contact
 protected:
 	friend class World;
 	friend class ContactManager;
-	friend class ContactSolver;
+	friend class SISolver;
+	friend class NNCGSolver;
 	friend class Debug;
 
 	Contact(Fixture* fixtureA, Fixture* fixtureB) : contactCacheKey()

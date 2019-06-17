@@ -1,5 +1,6 @@
 #include"peIsland.h"
-#include"peContactSolver.h"
+#include"peSISolver.h"
+#include"peNNCGSolver.h"
 #include"../memory/peStackAllocator.h"
 #include"../peRigidbody.h"
 #include"../common/peProfile.h"
@@ -68,28 +69,31 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 		angularVelocities[i] = w;
 	}
 
-	ContactSolverDef contactSolverDef;
-	contactSolverDef.timeStep = timeStep;
-	contactSolverDef.contactCount = contactCount;
-	contactSolverDef.contactsInIsland = contacts;
-	contactSolverDef.stackAllocator = stackAllocator;
-	contactSolverDef.positions = positions;
-	contactSolverDef.orientations = orientations;
-	contactSolverDef.linearVelocities = linearVelocities;
-	contactSolverDef.angularVelocities = angularVelocities;
+	NNCGSolverDef solverDef;
+	solverDef.timeStep = timeStep;
+	solverDef.rigidbodyCount = rigidbodyCount;
+	solverDef.contactCount = contactCount;
+	solverDef.contactsInIsland = contacts;
+	solverDef.stackAllocator = stackAllocator;
+	solverDef.positions = positions;
+	solverDef.orientations = orientations;
+	solverDef.linearVelocities = linearVelocities;
+	solverDef.angularVelocities = angularVelocities;
 
-	ContactSolver contactSolver(contactSolverDef);
+	NNCGSolver solver(solverDef);
 
-	contactSolver.initVelocityConstraints();
+	solver.initVelocityConstraints();
 
-	contactSolver.warmStart();
+	solver.warmStart();
 
 	timer.reset();
 	for (int i = 0; i < timeStep.velocityIteration; ++i)
-		contactSolver.solveVelocityConstraints();
+		solver.solveVelocityConstraints();
 	profile->solvingVC += timer.getMilliseconds();
 
-	contactSolver.saveImpulse();
+	solver.saveImpulse();
+
+	solver.applyeDelta();
 
 	for (int i = 0; i < rigidbodyCount; ++i)
 	{
@@ -110,7 +114,7 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 	timer.reset();
 	bool positionSolved = false;
 	for (int i = 0; i < timeStep.positionIteration; ++i)
-		if (contactSolver.solvePositionConstraints())
+		if (solver.solvePositionConstraints())
 		{
 			positionSolved = true;
 			break;

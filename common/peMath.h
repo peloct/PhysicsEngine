@@ -68,6 +68,11 @@ public:
 		return peSqrtf(x * x + y * y);
 	}
 
+	float32 sqrMagnitude() const
+	{
+		return x * x + y * y;
+	}
+
 	void setZero()
 	{
 		x = 0;

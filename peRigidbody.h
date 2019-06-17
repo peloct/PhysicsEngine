@@ -67,7 +67,8 @@ private:
 	friend class Renderer;
 	friend class Fixture;
 	friend class ContactManager;
-	friend class ContactSolver;
+	friend class SISolver;
+	friend class NNCGSolver;
 	friend class Debug;
 
 	RigidbodyType bodyType;

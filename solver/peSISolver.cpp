@@ -1,10 +1,60 @@
-#include"peContactSolver.h"
+#include"peSISolver.h"
 #include"../memory/peStackAllocator.h"
 #include"../collision/peContact.h"
 #include"../peFixture.h"
 #include"../peRigidbody.h"
 
-ContactSolver::ContactSolver(const ContactSolverDef& def)
+#define BOUNCE_THRESHOLD -1.0f
+#define BAUMGARTE 0.2f
+#define LINEAR_SLOP 0.005f
+
+struct SISolver::ContactVelocityConstraintPoint
+{
+	Vector3 rA;
+	Vector3 rB;
+	float32 normalImpulse;
+	Vector2 tangentImpulse;
+	float32 velocityBias;
+	float32 normalMass;
+	Matrix2x2 tangentMass;
+};
+
+struct SISolver::ContactVelocityConstraint
+{
+	int32 contactIndex;
+	int32 indexA;
+	int32 indexB;
+	float32 invMassA;
+	float32 invMassB;
+	Matrix3x3 invWorldIA;
+	Matrix3x3 invWorldIB;
+	float32 friction;
+	float32 restitution;
+	Vector3 normal;
+	Vector3 tangent1;
+	Vector3 tangent2;
+	int32 contactPointCount;
+	ContactVelocityConstraintPoint contactPoints[8];
+};
+
+struct SISolver::ContactPositionConstraint
+{
+	ContactFaceOwner faceOwner;
+	int32 indexA;
+	int32 indexB;
+	float32 invMassA;
+	float32 invMassB;
+	Matrix3x3 invIA;
+	Matrix3x3 invIB;
+	Vector3 localCenterA;
+	Vector3 localCenterB;
+	Vector3 localNormal;
+	Vector3 localPlanePoint;
+	int32 contactPointCount;
+	Vector3 contactPoints[8];
+};
+
+SISolver::SISolver(const SISolverDef& def)
 {
 	stackAllocator = def.stackAllocator;
 	contacts = def.contactsInIsland;
@@ -70,13 +120,13 @@ ContactSolver::ContactSolver(const ContactSolverDef& def)
 	}
 }
 
-ContactSolver::~ContactSolver()
+SISolver::~SISolver()
 {
 	stackAllocator->free(positionConstraints);
 	stackAllocator->free(velocityConstraints);
 }
 
-void ContactSolver::initVelocityConstraints()
+void SISolver::initVelocityConstraints()
 {
 	Matrix3x3 identity;
 	identity.identity();
@@ -144,7 +194,7 @@ void ContactSolver::initVelocityConstraints()
 	}
 }
 
-void ContactSolver::warmStart()
+void SISolver::warmStart()
 {
 	for (int i = 0; i < constraintsCount; ++i)
 	{
@@ -180,7 +230,7 @@ void ContactSolver::warmStart()
 	}
 }
 
-void ContactSolver::solveVelocityConstraints()
+void SISolver::solveVelocityConstraints()
 {
 	for (int i = 0; i < constraintsCount; ++i)
 	{
@@ -264,7 +314,7 @@ void ContactSolver::solveVelocityConstraints()
 	}
 }
 
-void ContactSolver::saveImpulse()
+void SISolver::saveImpulse()
 {
 	for (int i = 0; i < constraintsCount; ++i)
 	{
@@ -280,7 +330,7 @@ void ContactSolver::saveImpulse()
 	}
 }
 
-bool ContactSolver::solvePositionConstraints()
+bool SISolver::solvePositionConstraints()
 {
 	float32 minSeparation = 0.0f;
 
