@@ -8,13 +8,22 @@ class Contact;
 class StackAllocator;
 class Profile;
 
+struct IslandInfo
+{
+	IslandInfo() : isValid(false), rigidbodyCount(0), gradientMagSqr(0.0f) {}
+
+	bool isValid;
+	int32 rigidbodyCount;
+	float32 gradientMagSqr;
+};
+
 class Island
 {
 public:
 
 	Island(int32 bodyCapacity, int32 contactCapacity, StackAllocator* stackAllocator);
 	~Island();
-	void solve(const TimeStep& timeStep, const Vector3& gravity, Profile* profile);
+	IslandInfo solve(const TimeStep& timeStep, const Vector3& gravity, const IslandInfo& islandInfo, Profile* profile);
 
 	void clear()
 	{

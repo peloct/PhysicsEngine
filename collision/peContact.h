@@ -22,6 +22,8 @@ struct ContactPoint
 	Vector3 localPoint;
 	float32 normalImpulse;
 	Vector2 tangentImpulse;
+
+	Vector3 direction;
 };
 
 struct ContactCacheKey
@@ -74,6 +76,7 @@ protected:
 		friction = calcFriction();
 		restitution = calcRestitution();
 		islandID = -1;
+		isChanged = false;
 	}
 
 	Fixture* fixtureA;
@@ -98,6 +101,7 @@ protected:
 	float32 friction;
 	float32 restitution;
 
+	bool isChanged;
 	int32 islandID;
 
 	float32 calcFriction() const;

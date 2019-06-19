@@ -19,6 +19,8 @@ float32 Contact::calcRestitution() const
 
 void Contact::updateContact()
 {
+	isChanged = false;
+
 	Rigidbody* bodyA = fixtureA->getRigidbody();
 	Rigidbody* bodyB = fixtureB->getRigidbody();
 
@@ -39,6 +41,7 @@ void Contact::updateContact()
 	}
 
 	bool wasTouching = contactPointCount > 0;
+	bool touchingStateChanged = false;
 
 	evaluate();
 
@@ -48,16 +51,25 @@ void Contact::updateContact()
 		{
 			contactPoints[i].normalImpulse = points[i].normalImpulse;
 			contactPoints[i].tangentImpulse = points[i].tangentImpulse;
+			contactPoints[i].direction = points[i].direction;
 		}
+	}
+	else
+	{
+		touchingStateChanged = true;
 	}
 
 	bool isTouching = contactPointCount > 0;
 
 	if (wasTouching != isTouching)
 	{
+		touchingStateChanged = true;
 		bodyA->setAwake(true);
 		bodyB->setAwake(true);
 	}
+
+	if (touchingStateChanged)
+		isChanged = true;
 }
 
 Contact* Contact::createContact(BlockAllocator* boxAllocator, Fixture* fixtureA, Fixture* fixtureB)

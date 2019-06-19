@@ -90,7 +90,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 	dAngularV = (Vector3*)stackAllocator->allocate(rigidbodyCount * sizeof(Vector3));
 
 	prevGradientMagSqr = 0.0f;
-	curGradientMagSqr = 0.0f;
+	curGradientMagSqr = def.prevGradientMagSqr;
 
 	for (int i = 0; i < rigidbodyCount; ++i)
 	{
@@ -155,6 +155,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 			cachedImpulse[0] = cp->normalImpulse * def.timeStep.ratio;
 			cachedImpulse[1] = cp->tangentImpulse.x * def.timeStep.ratio;
 			cachedImpulse[2] = cp->tangentImpulse.y * def.timeStep.ratio;
+			float32 direction[3] = { cp->direction.x, cp->direction.y, cp->direction.z };
 
 			Vector3 worldPoint = bodyLocalToWorldB.transformPoint(cp->localPoint);
 
@@ -227,8 +228,8 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 					vc->maxImpulse = contact->friction;
 				}
 
-				vc->fGradient = 0;
-				vc->searchDir = 0;
+				vc->fGradient = 0.0f;
+				vc->searchDir = direction[k];
 
 				++vcIndex;
 			}
@@ -297,6 +298,7 @@ void NNCGSolver::PGS()
 
 void NNCGSolver::solveVelocityConstraints()
 {
+	hit = false;
 	prevGradientMagSqr = curGradientMagSqr;
 	curGradientMagSqr = 0.0f;
 
@@ -316,6 +318,8 @@ void NNCGSolver::solveVelocityConstraints()
 		}
 		else
 		{
+			hit = true;
+
 			for (int i = 0; i < velConstraintsCount; ++i)
 			{
 				ContactVelocityConstraint* vc = velocityConstraints + i;
@@ -354,11 +358,20 @@ void NNCGSolver::saveImpulse()
 		ContactPoint* cp = contact->contactPoints + vc->pointIndex;
 		
 		if (vc->dirIndex == 0)
+		{
 			cp->normalImpulse = vc->impulse;
+			cp->direction.x = vc->searchDir;
+		}
 		else if (vc->dirIndex == 1)
+		{
 			cp->tangentImpulse.x = vc->impulse;
+			cp->direction.y = vc->searchDir;
+		}
 		else
+		{
 			cp->tangentImpulse.y = vc->impulse;
+			cp->direction.z = vc->searchDir;
+		}
 	}
 }
 

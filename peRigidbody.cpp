@@ -39,6 +39,7 @@ Rigidbody::Rigidbody(const RigidbodyDef& def)
 	islandID = -1;
 	isAwakeFlag = true;
 	sleepTimer = 0.0f;
+	islandInfoID = -1;
 }
 
 Rigidbody::~Rigidbody()

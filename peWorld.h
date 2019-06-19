@@ -8,6 +8,8 @@
 #include"memory/peBlockAllocator.h"
 #include"common/peProfile.h"
 
+struct IslandInfo;
+
 class World
 {
 public:
@@ -39,4 +41,10 @@ private:
 	BlockAllocator blockAllocator;
 
 	Profile profile;
+
+	void clearIslandInfo() { islandInfoCount = 0; }
+	void saveIslandInfo(const IslandInfo& info);
+	int32 islandInfoCount;
+	int32 islandInfoCapacity;
+	IslandInfo* islandInfos;
 };

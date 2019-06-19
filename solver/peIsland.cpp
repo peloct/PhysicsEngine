@@ -38,8 +38,11 @@ Island::~Island()
 	stackAllocator->free(rigidbodies);
 }
 
-void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* profile)
+IslandInfo Island::solve(const TimeStep& timeStep, const Vector3& gravity, const IslandInfo& islandInfo, Profile* profile)
 {
+	IslandInfo ret;
+	ret.rigidbodyCount = rigidbodyCount;
+
 	Timer timer;
 
 	float32 dt = timeStep.dt;
@@ -79,6 +82,7 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 	solverDef.orientations = orientations;
 	solverDef.linearVelocities = linearVelocities;
 	solverDef.angularVelocities = angularVelocities;
+	solverDef.prevGradientMagSqr = islandInfo.isValid ? islandInfo.gradientMagSqr : 0.0f;
 
 	NNCGSolver solver(solverDef);
 
@@ -87,9 +91,16 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 	solver.warmStart();
 
 	timer.reset();
+
 	for (int i = 0; i < timeStep.velocityIteration; ++i)
+	{
 		solver.solveVelocityConstraints();
+		if (solver.hit)
+			++profile->hitCount;
+	}
+
 	profile->solvingVC += timer.getMilliseconds();
+	ret.gradientMagSqr = solver.getCurGradientMagSqr();
 
 	solver.saveImpulse();
 
@@ -170,4 +181,6 @@ void Island::solve(const TimeStep& timeStep, const Vector3& gravity, Profile* pr
 			each->setAwake(false);
 		}
 	}
+
+	return ret;
 }

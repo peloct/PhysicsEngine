@@ -15,6 +15,7 @@ struct NNCGSolverDef
 	Quaternion* orientations;
 	Vector3* linearVelocities;
 	Vector3* angularVelocities;
+	float32 prevGradientMagSqr;
 };
 
 class NNCGSolver : public ContactSolver
@@ -23,12 +24,14 @@ public:
 	NNCGSolver(const NNCGSolverDef& def);
 	~NNCGSolver();
 
+	bool hit;
 	void initVelocityConstraints() override;
 	void warmStart() override;
 	void solveVelocityConstraints() override;
 	void saveImpulse() override;
 	void applyeDelta() override;
 	bool solvePositionConstraints() override;
+	float32 getCurGradientMagSqr() const { return curGradientMagSqr; }
 
 private:
 	struct ContactVelocityConstraintPoint;

@@ -110,6 +110,7 @@ private:
 	int32 islandID;
 	bool isAwakeFlag;
 	float32 sleepTimer;
+	int32 islandInfoID;
 
 	void updateTransformDependants();
 };

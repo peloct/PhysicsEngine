@@ -4,6 +4,7 @@
 #include"common/peTimer.h"
 #include"common/peTimeStep.h"
 #include<new>
+#include<memory.h>
 
 #define NULL_ISLAND -1
 
@@ -12,6 +13,10 @@ World::World() : contactManager(&blockAllocator), gravity(), profile()
 	rigidbodyCount = 0;
 	rigidbodies = nullptr;
 	prevDTInv = 0.0f;
+
+	islandInfoCount = 0;
+	islandInfoCapacity = 50;
+	islandInfos = (IslandInfo*)peAlloc(islandInfoCapacity * sizeof(IslandInfo));
 }
 
 World::~World()
@@ -41,6 +46,7 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 	profile.checkCollision += timer.getMilliseconds();
 
 	Island island(rigidbodyCount, contactManager.contactCount, &stackAllocator);
+	IslandInfo* islandInfoBuffer = (IslandInfo*)stackAllocator.allocate(rigidbodyCount * sizeof(IslandInfo));
 
 	for (Rigidbody* eachBody = rigidbodies; eachBody; eachBody = eachBody->next)
 		eachBody->islandID = NULL_ISLAND;
@@ -50,6 +56,7 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 	int32 stackSize = 0;
 	Rigidbody** stack = (Rigidbody**)stackAllocator.allocate(rigidbodyCount * sizeof(Rigidbody*));
 
+	int32 islandCount = 0;
 	for (Rigidbody* eachBody = rigidbodies; eachBody; eachBody = eachBody->next)
 	{
 		if (eachBody->islandID != NULL_ISLAND)
@@ -65,9 +72,15 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 		eachBody->islandID = island.addRigidbody(eachBody);
 		stack[stackSize++] = eachBody;
 
+		int32 islandInfoID = eachBody->islandInfoID;
+		bool isIslandInfoValid = true;
+
 		while (stackSize > 0)
 		{
 			Rigidbody* here = stack[--stackSize];
+
+			if (islandInfoID != here->islandInfoID)
+				isIslandInfoValid = false;
 
 			if (here->bodyType == RigidbodyType::staticBody)
 				continue;
@@ -75,6 +88,9 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 			for (ContactRef* eachContactRef = here->contacts; eachContactRef; eachContactRef = eachContactRef->next)
 			{
 				Contact* eachContact = eachContactRef->contact;
+
+				if (eachContact->isChanged)
+					isIslandInfoValid = false;
 
 				if (eachContact->contactPointCount == 0)
 					continue;
@@ -93,14 +109,33 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 			}
 		}
 
-		island.solve(timeStep, gravity, &profile);
+		IslandInfo islandInfo;
+		islandInfo.isValid = false;
+
+		if (isIslandInfoValid && island.rigidbodyCount == islandInfos[islandInfoID].rigidbodyCount)
+		{
+			islandInfo = islandInfos[islandInfoID];
+			islandInfo.isValid = true;
+		}
+
+		int32 newIslandInfoID = islandCount;
+		profile.solveCount += velocityIteration;
+		islandInfoBuffer[islandCount++] = island.solve(timeStep, gravity, islandInfo, &profile);
 
 		for (int i = 0; i < island.rigidbodyCount; ++i)
+		{
+			island.rigidbodies[i]->islandInfoID = newIslandInfoID;
 			if (island.rigidbodies[i]->bodyType == RigidbodyType::staticBody)
 				island.rigidbodies[i]->islandID = NULL_ISLAND;
+		}
 	}
 
+	clearIslandInfo();
+	for (int i = 0; i < islandCount; ++i)
+		saveIslandInfo(islandInfoBuffer[i]);
+
 	stackAllocator.free(stack);
+	stackAllocator.free(islandInfoBuffer);
 
 	for (Rigidbody* eachBody = rigidbodies; eachBody; eachBody = eachBody->next)
 	{
@@ -156,4 +191,18 @@ void World::deleteBody(Rigidbody* body)
 	--rigidbodyCount;
 
 	blockAllocator.free(body, sizeof(Rigidbody));
+}
+
+void World::saveIslandInfo(const IslandInfo& info)
+{
+	if (islandInfoCount == islandInfoCapacity)
+	{
+		islandInfoCapacity *= 2;
+		IslandInfo* newBuffer = (IslandInfo*)peAlloc(islandInfoCapacity * sizeof(IslandInfo));
+		memcpy(newBuffer, islandInfos, islandInfoCount * sizeof(IslandInfo));
+		peFree(islandInfos);
+		islandInfos = newBuffer;
+	}
+
+	islandInfos[islandInfoCount++] = info;
 }
