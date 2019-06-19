@@ -37,6 +37,8 @@ void Contact::updateContact()
 		{
 			points[i].normalImpulse = 0;
 			points[i].tangentImpulse.setZero();
+			points[i].direction.setZero();
+			points[i].fGradient.setZero();
 		}
 	}
 
@@ -52,6 +54,7 @@ void Contact::updateContact()
 			contactPoints[i].normalImpulse = points[i].normalImpulse;
 			contactPoints[i].tangentImpulse = points[i].tangentImpulse;
 			contactPoints[i].direction = points[i].direction;
+			contactPoints[i].fGradient = points[i].fGradient;
 		}
 	}
 	else

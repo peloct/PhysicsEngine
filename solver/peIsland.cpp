@@ -82,7 +82,7 @@ IslandInfo Island::solve(const TimeStep& timeStep, const Vector3& gravity, const
 	solverDef.orientations = orientations;
 	solverDef.linearVelocities = linearVelocities;
 	solverDef.angularVelocities = angularVelocities;
-	solverDef.prevGradientMagSqr = islandInfo.isValid ? islandInfo.gradientMagSqr : 0.0f;
+	solverDef.prevStepInfo = islandInfo.isValid ? islandInfo.nncgSolverPrevStepInfo : NNCGSolverStepInfo();
 
 	NNCGSolver solver(solverDef);
 
@@ -100,8 +100,7 @@ IslandInfo Island::solve(const TimeStep& timeStep, const Vector3& gravity, const
 	}
 
 	profile->solvingVC += timer.getMilliseconds();
-	ret.gradientMagSqr = solver.getCurGradientMagSqr();
-
+	ret.nncgSolverPrevStepInfo = solver.getStepInfo();
 	solver.saveImpulse();
 
 	solver.applyeDelta();

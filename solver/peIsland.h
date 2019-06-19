@@ -2,6 +2,7 @@
 
 #include"../common/peMath.h"
 #include"../common/peTimeStep.h"
+#include"peNNCGSolver.h"
 
 class Rigidbody;
 class Contact;
@@ -10,11 +11,11 @@ class Profile;
 
 struct IslandInfo
 {
-	IslandInfo() : isValid(false), rigidbodyCount(0), gradientMagSqr(0.0f) {}
+	IslandInfo() : isValid(false), rigidbodyCount(0), nncgSolverPrevStepInfo() {}
 
 	bool isValid;
 	int32 rigidbodyCount;
-	float32 gradientMagSqr;
+	NNCGSolverStepInfo nncgSolverPrevStepInfo;
 };
 
 class Island

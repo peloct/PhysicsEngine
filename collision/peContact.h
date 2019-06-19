@@ -23,6 +23,7 @@ struct ContactPoint
 	float32 normalImpulse;
 	Vector2 tangentImpulse;
 
+	Vector3 fGradient;
 	Vector3 direction;
 };
 

@@ -89,8 +89,8 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 	dLinearV = (Vector3*)stackAllocator->allocate(rigidbodyCount * sizeof(Vector3));
 	dAngularV = (Vector3*)stackAllocator->allocate(rigidbodyCount * sizeof(Vector3));
 
-	prevGradientMagSqr = 0.0f;
-	curGradientMagSqr = def.prevGradientMagSqr;
+	prevGradientMagSqr = def.prevStepInfo.prevGradientMagSqr;
+	curGradientMagSqr = def.prevStepInfo.curGradientMagSqr;
 
 	for (int i = 0; i < rigidbodyCount; ++i)
 	{
@@ -155,6 +155,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 			cachedImpulse[0] = cp->normalImpulse * def.timeStep.ratio;
 			cachedImpulse[1] = cp->tangentImpulse.x * def.timeStep.ratio;
 			cachedImpulse[2] = cp->tangentImpulse.y * def.timeStep.ratio;
+			float32 fGradient[3] = { cp->fGradient.x, cp->fGradient.y, cp->fGradient.z };
 			float32 direction[3] = { cp->direction.x, cp->direction.y, cp->direction.z };
 
 			Vector3 worldPoint = bodyLocalToWorldB.transformPoint(cp->localPoint);
@@ -228,7 +229,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 					vc->maxImpulse = contact->friction;
 				}
 
-				vc->fGradient = 0.0f;
+				vc->fGradient = fGradient[k];
 				vc->searchDir = direction[k];
 
 				++vcIndex;
@@ -299,10 +300,6 @@ void NNCGSolver::PGS()
 void NNCGSolver::solveVelocityConstraints()
 {
 	hit = false;
-	prevGradientMagSqr = curGradientMagSqr;
-	curGradientMagSqr = 0.0f;
-
-	PGS();
 
 	if (prevGradientMagSqr > 0.0f)
 	{
@@ -346,6 +343,11 @@ void NNCGSolver::solveVelocityConstraints()
 			vc->searchDir = -vc->fGradient;
 		}
 	}
+
+	prevGradientMagSqr = curGradientMagSqr;
+	curGradientMagSqr = 0.0f;
+
+	PGS();
 }
 
 void NNCGSolver::saveImpulse()
@@ -361,16 +363,19 @@ void NNCGSolver::saveImpulse()
 		{
 			cp->normalImpulse = vc->impulse;
 			cp->direction.x = vc->searchDir;
+			cp->fGradient.x = vc->fGradient;
 		}
 		else if (vc->dirIndex == 1)
 		{
 			cp->tangentImpulse.x = vc->impulse;
 			cp->direction.y = vc->searchDir;
+			cp->fGradient.y = vc->fGradient;
 		}
 		else
 		{
 			cp->tangentImpulse.y = vc->impulse;
 			cp->direction.z = vc->searchDir;
+			cp->fGradient.z = vc->fGradient;
 		}
 	}
 }

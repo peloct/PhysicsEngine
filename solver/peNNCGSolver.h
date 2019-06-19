@@ -4,6 +4,18 @@
 
 class StackAllocator;
 
+struct NNCGSolverStepInfo
+{
+	NNCGSolverStepInfo()
+	{
+		curGradientMagSqr = 0.0f;
+		prevGradientMagSqr = 0.0f;
+	}
+
+	float32 curGradientMagSqr;
+	float32 prevGradientMagSqr;
+};
+
 struct NNCGSolverDef
 {
 	int32 rigidbodyCount;
@@ -15,7 +27,7 @@ struct NNCGSolverDef
 	Quaternion* orientations;
 	Vector3* linearVelocities;
 	Vector3* angularVelocities;
-	float32 prevGradientMagSqr;
+	NNCGSolverStepInfo prevStepInfo;
 };
 
 class NNCGSolver : public ContactSolver
@@ -31,7 +43,14 @@ public:
 	void saveImpulse() override;
 	void applyeDelta() override;
 	bool solvePositionConstraints() override;
-	float32 getCurGradientMagSqr() const { return curGradientMagSqr; }
+
+	NNCGSolverStepInfo getStepInfo() const
+	{
+		NNCGSolverStepInfo ret;
+		ret.curGradientMagSqr = curGradientMagSqr;
+		ret.prevGradientMagSqr = prevGradientMagSqr;
+		return ret;
+	}
 
 private:
 	struct ContactVelocityConstraintPoint;
