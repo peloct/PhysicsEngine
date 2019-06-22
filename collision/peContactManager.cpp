@@ -3,11 +3,11 @@
 #include"../peFixture.h"
 #include"peContact.h"
 
-ContactManager::ContactManager(BlockAllocator* boxAllocator)
+ContactManager::ContactManager(BlockAllocator* blockAllocator)
 {
 	contacts = nullptr;
 	contactCount = 0;
-	this->boxAllocator = boxAllocator;
+	this->blockAllocator = blockAllocator;
 }
 
 void ContactManager::addContact(ContactManager* cm, Fixture* fixtureA, Fixture* fixtureB)
@@ -26,7 +26,7 @@ void ContactManager::addContact(ContactManager* cm, Fixture* fixtureA, Fixture* 
 		contactRef = contactRef->next;
 	}
 
-	Contact* contact = Contact::createContact(cm->boxAllocator, fixtureA, fixtureB);
+	Contact* contact = Contact::createContact(cm->blockAllocator, fixtureA, fixtureB);
 	// contact 를 생성하는 과정에서 swaping 이 있을 수 있다.
 	fixtureA = contact->fixtureA;
 	fixtureB = contact->fixtureB;
@@ -100,7 +100,7 @@ void ContactManager::removeContact(Contact* contact)
 			contact->refFromB.next->prev = contact->refFromB.prev;
 	}
 
-	Contact::deleteContact(boxAllocator, contact);
+	Contact::deleteContact(blockAllocator, contact);
 	--contactCount;
 }
 

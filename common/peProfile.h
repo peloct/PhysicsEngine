@@ -11,7 +11,6 @@ struct Profile
 	float32 syncFixture;
 	float32 updateContacts;
 	int32 solveCount;
-	int32 hitCount;
 
 	int32 blockChunkCount;
 	int32 freeBlockCounts[14];
@@ -26,7 +25,6 @@ struct Profile
 		syncFixture = 0;
 		updateContacts = 0;
 		solveCount = 0;
-		hitCount = 0;
 
 		for (int i = 0; i < 14; ++i)
 		{

@@ -6,6 +6,7 @@
 class World;
 class Renderer;
 class ContactRef;
+class JointRef;
 
 enum RigidbodyType
 {
@@ -67,13 +68,17 @@ private:
 	friend class Renderer;
 	friend class Fixture;
 	friend class ContactManager;
-	friend class SISolver;
 	friend class NNCGSolver;
+
 	friend class Debug;
+
+	friend class SpringJoint;
 
 	RigidbodyType bodyType;
 
 	// constants
+	int32 guid;
+	
 	Fixture* fixture;
 	float32 invMass;
 	Vector3 centerOfMass;
@@ -101,6 +106,7 @@ private:
 	Vector3 torque;
 
 	ContactRef* contacts;
+	JointRef* joints;
 
 	World* world;
 	Rigidbody* next;
@@ -112,5 +118,6 @@ private:
 	float32 sleepTimer;
 	int32 islandInfoID;
 
+	static int32 nextGUID;
 	void updateTransformDependants();
 };

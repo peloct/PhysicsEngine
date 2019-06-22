@@ -3,8 +3,11 @@
 #include"peFixture.h"
 #include<new>
 
+int32 Rigidbody::nextGUID = 0;
+
 Rigidbody::Rigidbody(const RigidbodyDef& def)
 {
+	guid = nextGUID++;
 	bodyType = def.bodyType;
 
 	fixture = nullptr;
@@ -35,11 +38,12 @@ Rigidbody::Rigidbody(const RigidbodyDef& def)
 
 	world = nullptr;
 	contacts = nullptr;
+	joints = nullptr;
 
-	islandID = -1;
+	islandID = NULL_ID;
 	isAwakeFlag = true;
 	sleepTimer = 0.0f;
-	islandInfoID = -1;
+	islandInfoID = NULL_ID;
 }
 
 Rigidbody::~Rigidbody()

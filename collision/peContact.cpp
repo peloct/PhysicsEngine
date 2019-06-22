@@ -75,7 +75,7 @@ void Contact::updateContact()
 		isChanged = true;
 }
 
-Contact* Contact::createContact(BlockAllocator* boxAllocator, Fixture* fixtureA, Fixture* fixtureB)
+Contact* Contact::createContact(BlockAllocator* blockAllocator, Fixture* fixtureA, Fixture* fixtureB)
 {
 	if (!isFactoryInitialized)
 	{
@@ -87,17 +87,17 @@ Contact* Contact::createContact(BlockAllocator* boxAllocator, Fixture* fixtureA,
 	Shape::Type shapeTypeA = fixtureA->getShape()->getType();
 	Shape::Type shapeTypeB = fixtureB->getShape()->getType();
 
-	return factoryMap[shapeTypeA][shapeTypeB].createFunc(boxAllocator, fixtureA, fixtureB);
+	return factoryMap[shapeTypeA][shapeTypeB].createFunc(blockAllocator, fixtureA, fixtureB);
 }
 
-void Contact::deleteContact(BlockAllocator* boxAllocator, Contact* contact)
+void Contact::deleteContact(BlockAllocator* blockAllocator, Contact* contact)
 {
 	assert(isFactoryInitialized);
 
 	Shape::Type shapeTypeA = contact->fixtureA->getShape()->getType();
 	Shape::Type shapeTypeB = contact->fixtureB->getShape()->getType();
 
-	factoryMap[shapeTypeA][shapeTypeB].destroyFunc(boxAllocator, contact);
+	factoryMap[shapeTypeA][shapeTypeB].destroyFunc(blockAllocator, contact);
 }
 
 static bool isFactoryInitialized = false;

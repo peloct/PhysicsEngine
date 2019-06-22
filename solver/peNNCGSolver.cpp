@@ -3,94 +3,55 @@
 #include"../collision/peContact.h"
 #include"../peFixture.h"
 #include"../peRigidbody.h"
+#include"../joint/peJoint.h"
 
 #define BOUNCE_THRESHOLD -1.0f
 #define BAUMGARTE 0.2f
 #define LINEAR_SLOP 0.005f
 
-struct Jsp
+struct NNCGSolver::ContactVCCacheRef
 {
-	Vector3 linearA;
-	Vector3 angularA;
-	Vector3 linearB;
-	Vector3 angularB;
-};
-
-struct Bsp
-{
-	Vector3 linearA;
-	Vector3 angularA;
-	Vector3 linearB;
-	Vector3 angularB;
-};
-
-struct NNCGSolver::ContactVelocityConstraint
-{
-	int32 contactIndex;
-	int32 pointIndex;
+	ContactPoint* cp;
 	int32 dirIndex;
-
-	int32 indexA;
-	int32 indexB;
-	float32 desiredDelV;
-	float32 impulse;
-	float32 minImpulse;
-	float32 maxImpulse;
-	int32 dependentImpulse;
-
-	Jsp j;
-	Bsp b;
-	float32 d;
-
-	float32 fGradient;
-	float32 searchDir;
 };
 
-struct NNCGSolver::ContactPositionConstraint
+NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 {
-	ContactFaceOwner faceOwner;
-	int32 indexA;
-	int32 indexB;
-	float32 invMassA;
-	float32 invMassB;
-	Matrix3x3 invIA;
-	Matrix3x3 invIB;
-	Vector3 localCenterA;
-	Vector3 localCenterB;
-	Vector3 localNormal;
-	Vector3 localPlanePoint;
-	int32 contactPointCount;
-	Vector3 contactPoints[8];
-};
+	stackAllocator = data.stackAllocator;
 
-NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
-{
-	stackAllocator = def.stackAllocator;
+	int32 contactCount = data.contactCount;
+	contacts = data.contactsInIsland;
 
-	contactCount = def.contactCount;
-	contacts = def.contactsInIsland;
+	jointCount = data.jointCount;
+	joints = data.jointsInIsland;
 
-	positions = def.positions;
-	orientations = def.orientations;
-	linearVelocities = def.linearVelocities;
-	angularVelocities = def.angularVelocities;
+	positions = data.positions;
+	orientations = data.orientations;
+	linearVelocities = data.linearVelocities;
+	angularVelocities = data.angularVelocities;
 
-	velConstraintsCount = 0;
+	jointVCCount = 0;
+	for (int i = 0; i < jointCount; ++i)
+		jointVCCount += joints[i]->getVelConstraintCount();
+
+	contactVCCount = 0;
 	for (int i = 0; i < contactCount; ++i)
-		velConstraintsCount += contacts[i]->contactPointCount;
-	velConstraintsCount *= 3;
+		contactVCCount += contacts[i]->contactPointCount;
+	contactVCCount *= 3;
 
-	velocityConstraints = (ContactVelocityConstraint*)stackAllocator->allocate(velConstraintsCount * sizeof(ContactVelocityConstraint));
+	velConstraintsCount = jointVCCount + contactVCCount;
+	contactVCCacheRefs = (ContactVCCacheRef*)stackAllocator->allocate(contactVCCount * sizeof(ContactVCCacheRef));
+	velocityConstraints = (VelocityConstraint*)stackAllocator->allocate(velConstraintsCount * sizeof(VelocityConstraint));
 
-	posConstraintsCount = contactCount;
-	positionConstraints = (ContactPositionConstraint*)stackAllocator->allocate(posConstraintsCount * sizeof(ContactPositionConstraint));
+	contactPCCount = contactCount;
+	positionConstraints = (ContactPositionConstraint*)stackAllocator->allocate(contactPCCount * sizeof(ContactPositionConstraint));
 
-	rigidbodyCount = def.rigidbodyCount;
+	rigidbodyCount = data.rigidbodyCount;
 	dLinearV = (Vector3*)stackAllocator->allocate(rigidbodyCount * sizeof(Vector3));
 	dAngularV = (Vector3*)stackAllocator->allocate(rigidbodyCount * sizeof(Vector3));
 
-	prevGradientMagSqr = def.prevStepInfo.prevGradientMagSqr;
-	curGradientMagSqr = def.prevStepInfo.curGradientMagSqr;
+	prevGradientMagSqr = data.prevStepInfo.prevGradientMagSqr;
+	curGradientMagSqr = data.prevStepInfo.curGradientMagSqr;
 
 	for (int i = 0; i < rigidbodyCount; ++i)
 	{
@@ -99,12 +60,35 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 	}
 
 	int vcIndex = 0;
+
+	for (int i = 0; i < jointCount; ++i)
+	{
+		Joint* joint = joints[i];
+		joint->createVelConstraints(data, velocityConstraints + vcIndex, dLinearV, dAngularV);
+		vcIndex += joint->getVelConstraintCount();
+	}
+
+	int32 contactCachRefID = 0;
 	for (int i = 0; i < contactCount; ++i)
 	{
 		Contact* contact = contacts[i];
 
-		const Rigidbody* rigidbodyA = contact->fixtureA->getRigidbody();
-		const Rigidbody* rigidbodyB = contact->fixtureB->getRigidbody();
+		Fixture* fixtureA;
+		Fixture* fixtureB;
+
+		if (contact->contactFaceOwner == ContactFaceOwner::fixtureA)
+		{
+			fixtureA = contact->fixtureA;
+			fixtureB = contact->fixtureB;
+		}
+		else
+		{
+			fixtureA = contact->fixtureB;
+			fixtureB = contact->fixtureA;
+		}
+
+		const Rigidbody* rigidbodyA = fixtureA->getRigidbody();
+		const Rigidbody* rigidbodyB = fixtureB->getRigidbody();
 
 		int32 indexA = rigidbodyA->islandID;
 		int32 indexB = rigidbodyB->islandID;
@@ -122,8 +106,8 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 		const Matrix3x3& invWorldIA = rigidbodyA->invWorldInertiaTensor;
 		const Matrix3x3& invWorldIB = rigidbodyB->invWorldInertiaTensor;
 
-		Matrix4x4 bodyLocalToWorldA = contact->fixtureA->getBodyLocalToWorld();
-		Matrix4x4 bodyLocalToWorldB = contact->fixtureB->getBodyLocalToWorld();
+		Matrix4x4 bodyLocalToWorldA = fixtureA->getBodyLocalToWorld();
+		Matrix4x4 bodyLocalToWorldB = fixtureB->getBodyLocalToWorld();
 
 		Vector3 dir[3];
 		dir[0] = bodyLocalToWorldA.transformDirection(contact->localNormal);
@@ -152,9 +136,9 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 			pc->contactPoints[j] = cp->localPoint;
 
 			float32 cachedImpulse[3];
-			cachedImpulse[0] = cp->normalImpulse * def.timeStep.ratio;
-			cachedImpulse[1] = cp->tangentImpulse.x * def.timeStep.ratio;
-			cachedImpulse[2] = cp->tangentImpulse.y * def.timeStep.ratio;
+			cachedImpulse[0] = cp->normalImpulse * data.timeStep.ratio;
+			cachedImpulse[1] = cp->tangentImpulse.x * data.timeStep.ratio;
+			cachedImpulse[2] = cp->tangentImpulse.y * data.timeStep.ratio;
 			float32 fGradient[3] = { cp->fGradient.x, cp->fGradient.y, cp->fGradient.z };
 			float32 direction[3] = { cp->direction.x, cp->direction.y, cp->direction.z };
 
@@ -165,43 +149,45 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 
 			for (int k = 0; k < 3; ++k)
 			{
-				ContactVelocityConstraint* vc = velocityConstraints + vcIndex;
+				VelocityConstraint* vc = velocityConstraints + vcIndex;
+				vc->doSolve = true;
 
-				vc->contactIndex = i;
-				vc->pointIndex = j;
-				vc->dirIndex = k;
+				ContactVCCacheRef& cacheRef = contactVCCacheRefs[contactCachRefID++];
+				vc->cacheRef = &cacheRef;
+				cacheRef.cp = cp;
+				cacheRef.dirIndex = k;
 
 				Vector3 dirA = -dir[k];
 				Vector3 dirB = dir[k];
 
-				Jsp& j = vc->j;
+				Jsp& jsp = vc->j;
 
-				j.linearA = dirA;
-				j.angularA = Vector3::cross(rA, dirA);
-				j.linearB = dirB;
-				j.angularB = Vector3::cross(rB, dirB);
+				jsp.linearA = dirA;
+				jsp.angularA = Vector3::cross(rA, dirA);
+				jsp.linearB = dirB;
+				jsp.angularB = Vector3::cross(rB, dirB);
 
-				Bsp& b = vc->b;
+				Bsp& bsp = vc->b;
 
-				b.linearA = invMassA * j.linearA;
-				b.angularA = invWorldIA * j.angularA;
-				b.linearB = invMassB * j.linearB;
-				b.angularB = invWorldIB * j.angularB;
+				bsp.linearA = invMassA * jsp.linearA;
+				bsp.angularA = invWorldIA * jsp.angularA;
+				bsp.linearB = invMassB * jsp.linearB;
+				bsp.angularB = invWorldIB * jsp.angularB;
 
 				float32 impulse = cachedImpulse[k];
 
 				vc->impulse = impulse;
 
-				dLinearV[indexA] += impulse * b.linearA;
-				dAngularV[indexA] += impulse * b.angularA;
-				dLinearV[indexB] += impulse * b.linearB;
-				dAngularV[indexB] += impulse * b.angularB;
+				dLinearV[indexA] += impulse * bsp.linearA;
+				dAngularV[indexA] += impulse * bsp.angularA;
+				dLinearV[indexB] += impulse * bsp.linearB;
+				dAngularV[indexB] += impulse * bsp.angularB;
 
 				vc->d =
-					Vector3::dot(j.linearA, b.linearA)
-					+ Vector3::dot(j.angularA, b.angularA)
-					+ Vector3::dot(j.linearB, b.linearB)
-					+ Vector3::dot(j.angularB, b.angularB);
+					Vector3::dot(jsp.linearA, bsp.linearA)
+					+ Vector3::dot(jsp.angularA, bsp.angularA)
+					+ Vector3::dot(jsp.linearB, bsp.linearB)
+					+ Vector3::dot(jsp.angularB, bsp.angularB);
 
 				vc->indexA = indexA;
 				vc->indexB = indexB;
@@ -209,7 +195,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverDef& def)
 				Vector3 relVel = vB + Vector3::cross(wB, rB) - vA - Vector3::cross(wA, rA);
 				float32 relVelToDir = Vector3::dot(relVel, dirB);
 
-				vc->dependentImpulse = -1;
+				vc->dependentImpulse = NULL_ID;
 				vc->minImpulse = -MaxFloat32;
 				vc->maxImpulse = MaxFloat32;
 
@@ -244,32 +230,26 @@ NNCGSolver::~NNCGSolver()
 	stackAllocator->free(dLinearV);
 	stackAllocator->free(positionConstraints);
 	stackAllocator->free(velocityConstraints);
-}
-
-void NNCGSolver::initVelocityConstraints()
-{
-}
-
-void NNCGSolver::warmStart()
-{
+	stackAllocator->free(contactVCCacheRefs);
 }
 
 void NNCGSolver::PGS()
 {
 	for (int i = 0; i < velConstraintsCount; ++i)
 	{
-		ContactVelocityConstraint* vc = velocityConstraints + i;
+		VelocityConstraint* vc = velocityConstraints + i;
+
+		if (!vc->doSolve)
+			continue;
 
 		int32 indexA = vc->indexA;
 		int32 indexB = vc->indexB;
 
 		const Bsp& b = vc->b;
 
-		float32 delV =
-			Vector3::dot(vc->j.linearA, dLinearV[indexA])
-			+ Vector3::dot(vc->j.angularA, dAngularV[indexA])
-			+ Vector3::dot(vc->j.linearB, dLinearV[indexB])
-			+ Vector3::dot(vc->j.angularB, dAngularV[indexB]);
+		float32 delV = Vector3::dot(vc->j.linearA, dLinearV[indexA]) + Vector3::dot(vc->j.angularA, dAngularV[indexA]);
+		if (indexB != NULL_ID)
+			delV += Vector3::dot(vc->j.linearB, dLinearV[indexB]) + Vector3::dot(vc->j.angularB, dAngularV[indexB]);
 
 		float32 dImpulse = (vc->desiredDelV - delV) / vc->d;
 		float32 impulse0 = vc->impulse;
@@ -277,7 +257,7 @@ void NNCGSolver::PGS()
 		float32 minImpulse = vc->minImpulse;
 		float32 maxImpulse = vc->maxImpulse;
 
-		if (vc->dependentImpulse >= 0)
+		if (vc->dependentImpulse != NULL_ID)
 		{
 			float32 impulse = velocityConstraints[vc->dependentImpulse].impulse;
 			minImpulse = impulse * minImpulse;
@@ -292,15 +272,16 @@ void NNCGSolver::PGS()
 
 		dLinearV[indexA] += dImpulse * b.linearA;
 		dAngularV[indexA] += dImpulse * b.angularA;
-		dLinearV[indexB] += dImpulse * b.linearB;
-		dAngularV[indexB] += dImpulse * b.angularB;
+		if (indexB != NULL_ID)
+		{
+			dLinearV[indexB] += dImpulse * b.linearB;
+			dAngularV[indexB] += dImpulse * b.angularB;
+		}
 	}
 }
 
 void NNCGSolver::solveVelocityConstraints()
 {
-	hit = false;
-
 	if (prevGradientMagSqr > 0.0f)
 	{
 		float32 beta = curGradientMagSqr / prevGradientMagSqr;
@@ -309,17 +290,15 @@ void NNCGSolver::solveVelocityConstraints()
 		{
 			for (int i = 0; i < velConstraintsCount; ++i)
 			{
-				ContactVelocityConstraint* vc = velocityConstraints + i;
+				VelocityConstraint* vc = velocityConstraints + i;
 				vc->searchDir = 0;
 			}
 		}
 		else
 		{
-			hit = true;
-
 			for (int i = 0; i < velConstraintsCount; ++i)
 			{
-				ContactVelocityConstraint* vc = velocityConstraints + i;
+				VelocityConstraint* vc = velocityConstraints + i;
 				float32 searchImpulse = beta * vc->searchDir;
 				
 				const Bsp& b = vc->b;
@@ -339,7 +318,7 @@ void NNCGSolver::solveVelocityConstraints()
 	{
 		for (int i = 0; i < velConstraintsCount; ++i)
 		{
-			ContactVelocityConstraint* vc = velocityConstraints + i;
+			VelocityConstraint* vc = velocityConstraints + i;
 			vc->searchDir = -vc->fGradient;
 		}
 	}
@@ -352,20 +331,30 @@ void NNCGSolver::solveVelocityConstraints()
 
 void NNCGSolver::saveImpulse()
 {
-	for (int i = 0; i < velConstraintsCount; ++i)
-	{
-		ContactVelocityConstraint* vc = velocityConstraints + i;
-		Contact* contact = contacts[vc->contactIndex];
+	VelocityConstraint* jointVCs = velocityConstraints;
+	VelocityConstraint* contactVCs = velocityConstraints + jointVCCount;
 
-		ContactPoint* cp = contact->contactPoints + vc->pointIndex;
+	for (int i = 0; i < jointVCCount;)
+	{
+		VelocityConstraint* vc = jointVCs + i;
+		Joint* joint = (Joint*)vc->cacheRef;
+		joint->saveImpulse(vc);
+		i += joint->getVelConstraintCount();
+	}
+
+	for (int i = 0; i < contactVCCount; ++i)
+	{
+		VelocityConstraint* vc = contactVCs + i;
+		ContactVCCacheRef* cacheRef = (ContactVCCacheRef*)vc->cacheRef;
+		ContactPoint* cp = cacheRef->cp;
 		
-		if (vc->dirIndex == 0)
+		if (cacheRef->dirIndex == 0)
 		{
 			cp->normalImpulse = vc->impulse;
 			cp->direction.x = vc->searchDir;
 			cp->fGradient.x = vc->fGradient;
 		}
-		else if (vc->dirIndex == 1)
+		else if (cacheRef->dirIndex == 1)
 		{
 			cp->tangentImpulse.x = vc->impulse;
 			cp->direction.y = vc->searchDir;
@@ -393,41 +382,18 @@ bool NNCGSolver::solvePositionConstraints()
 {
 	float32 minSeparation = 0.0f;
 
-	for (int i = 0; i < posConstraintsCount; ++i)
+	for (int i = 0; i < contactPCCount; ++i)
 	{
 		ContactPositionConstraint* pc = positionConstraints + i;
 
-		int32 refIndex;
-		int32 incIndex;
-		Vector3 refLocalCenter;
-		Vector3 incLocalCenter;
-		float32 refInvMass;
-		float32 incInvMass;
-		Matrix3x3 refInvI;
-		Matrix3x3 incInvI;
-
-		if (pc->faceOwner == ContactFaceOwner::fixtureA)
-		{
-			refIndex = pc->indexA;
-			incIndex = pc->indexB;
-			refLocalCenter = pc->localCenterA;
-			incLocalCenter = pc->localCenterB;
-			refInvMass = pc->invMassA;
-			incInvMass = pc->invMassB;
-			refInvI = pc->invIA;
-			incInvI = pc->invIB;
-		}
-		else
-		{
-			refIndex = pc->indexB;
-			incIndex = pc->indexA;
-			refLocalCenter = pc->localCenterB;
-			incLocalCenter = pc->localCenterA;
-			refInvMass = pc->invMassB;
-			incInvMass = pc->invMassA;
-			refInvI = pc->invIB;
-			incInvI = pc->invIA;
-		}
+		int32 refIndex = pc->indexA;
+		int32 incIndex = pc->indexB;
+		Vector3 refLocalCenter = pc->localCenterA;
+		Vector3 incLocalCenter = pc->localCenterB;
+		float32 refInvMass = pc->invMassA;
+		float32 incInvMass = pc->invMassB;
+		Matrix3x3 refInvI = pc->invIA;
+		Matrix3x3 incInvI = pc->invIB;
 
 		Vector3 pRef = positions[refIndex];
 		Quaternion qRef = orientations[refIndex];
@@ -482,5 +448,12 @@ bool NNCGSolver::solvePositionConstraints()
 		orientations[incIndex] = qInc;
 	}
 
-	return minSeparation > -1.5 * LINEAR_SLOP;
+	bool jointOk = true;
+	for (int i = 0; i < jointCount; ++i)
+	{
+		bool isOk = joints[i]->solvePosConstraints(positions, orientations);
+		jointOk &= isOk;
+	}
+
+	return minSeparation > -1.5 * LINEAR_SLOP && jointOk;
 }

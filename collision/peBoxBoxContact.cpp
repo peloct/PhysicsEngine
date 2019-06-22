@@ -432,13 +432,13 @@ void BoxBoxContact::evaluate()
 	contactCacheKey.b = incidentFace->index;
 }
 
-Contact* BoxBoxContact::createFunc(BlockAllocator* boxAllocator, Fixture* fixtureA, Fixture* fixtureB)
+Contact* BoxBoxContact::createFunc(BlockAllocator* blockAllocator, Fixture* fixtureA, Fixture* fixtureB)
 {
-	void* mem = boxAllocator->allocate(sizeof(BoxBoxContact));
+	void* mem = blockAllocator->allocate(sizeof(BoxBoxContact));
 	return new (mem) BoxBoxContact(fixtureA, fixtureB);
 }
 
-void BoxBoxContact::deleteFunc(BlockAllocator* boxAllocator, Contact* contact)
+void BoxBoxContact::deleteFunc(BlockAllocator* blockAllocator, Contact* contact)
 {
-	boxAllocator->free(contact, sizeof(BoxBoxContact));
+	blockAllocator->free(contact, sizeof(BoxBoxContact));
 }

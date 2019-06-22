@@ -6,12 +6,13 @@
 #include<new>
 #include<memory.h>
 
-#define NULL_ISLAND -1
-
 World::World() : contactManager(&blockAllocator), gravity(), profile()
 {
 	rigidbodyCount = 0;
 	rigidbodies = nullptr;
+	jointCount = 0;
+	joints = nullptr;
+
 	prevDTInv = 0.0f;
 
 	islandInfoCount = 0;
@@ -28,7 +29,10 @@ World::~World()
 void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 {
 	Timer timer2;
+	timer2.reset();
+
 	Timer timer;
+
 	profile.reset();
 
 	if (dt == 0.0f)
@@ -40,26 +44,28 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 	timeStep.velocityIteration = velocityIteration;
 	timeStep.positionIteration = positionIteration;
 
-	timer2.reset();
 	timer.reset();
 	contactManager.checkCollision();
 	profile.checkCollision += timer.getMilliseconds();
 
-	Island island(rigidbodyCount, contactManager.contactCount, &stackAllocator);
+	Island island(rigidbodyCount, contactManager.contactCount, jointCount, &stackAllocator);
 	IslandInfo* islandInfoBuffer = (IslandInfo*)stackAllocator.allocate(rigidbodyCount * sizeof(IslandInfo));
 
 	for (Rigidbody* eachBody = rigidbodies; eachBody; eachBody = eachBody->next)
-		eachBody->islandID = NULL_ISLAND;
+		eachBody->islandID = NULL_ID;
 	for (Contact* eachContact = contactManager.contacts; eachContact; eachContact = eachContact->next)
-		eachContact->islandID = NULL_ISLAND;
+		eachContact->islandID = NULL_ID;
+	for (Joint* eachJoint = joints; eachJoint; eachJoint = eachJoint = eachJoint->next)
+		eachJoint->islandID = NULL_ID;
 
 	int32 stackSize = 0;
 	Rigidbody** stack = (Rigidbody**)stackAllocator.allocate(rigidbodyCount * sizeof(Rigidbody*));
 
 	int32 islandCount = 0;
+
 	for (Rigidbody* eachBody = rigidbodies; eachBody; eachBody = eachBody->next)
 	{
-		if (eachBody->islandID != NULL_ISLAND)
+		if (eachBody->islandID != NULL_ID)
 			continue;
 
 		if (eachBody->bodyType == RigidbodyType::staticBody)
@@ -95,13 +101,30 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 				if (eachContact->contactPointCount == 0)
 					continue;
 
-				if (eachContact->islandID != NULL_ISLAND)
+				if (eachContact->islandID != NULL_ID)
 					continue;
 
 				eachContact->islandID = island.addContact(eachContact);
 				Rigidbody* otherBody = eachContactRef->other;
 
-				if (otherBody->islandID != NULL_ISLAND)
+				if (otherBody->islandID != NULL_ID)
+					continue;
+
+				otherBody->islandID = island.addRigidbody(otherBody);
+				stack[stackSize++] = otherBody;
+			}
+
+			for (JointRef* eachJointRef = here->joints; eachJointRef; eachJointRef = eachJointRef->next)
+			{
+				Joint* eachJoint = eachJointRef->joint;
+				
+				if (eachJoint->islandID != NULL_ID)
+					continue;
+
+				eachJoint->islandID = island.addJoint(eachJoint);
+				Rigidbody* otherBody = eachJointRef->other;
+
+				if (otherBody == nullptr || otherBody->islandID != NULL_ID)
 					continue;
 
 				otherBody->islandID = island.addRigidbody(otherBody);
@@ -126,7 +149,7 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 		{
 			island.rigidbodies[i]->islandInfoID = newIslandInfoID;
 			if (island.rigidbodies[i]->bodyType == RigidbodyType::staticBody)
-				island.rigidbodies[i]->islandID = NULL_ISLAND;
+				island.rigidbodies[i]->islandID = NULL_ID;
 		}
 	}
 
@@ -139,7 +162,7 @@ void World::step(float32 dt, int32 velocityIteration, int32 positionIteration)
 
 	for (Rigidbody* eachBody = rigidbodies; eachBody; eachBody = eachBody->next)
 	{
-		if (eachBody->islandID == NULL_ISLAND)
+		if (eachBody->islandID == NULL_ID)
 			continue;
 
 		timer.reset();
@@ -191,6 +214,88 @@ void World::deleteBody(Rigidbody* body)
 	--rigidbodyCount;
 
 	blockAllocator.free(body, sizeof(Rigidbody));
+}
+
+Joint* World::createJoint(const JointDef& def)
+{
+	Joint* joint = Joint::createJoint(&blockAllocator, def);
+
+	joint->next = joints;
+	joint->prev = nullptr;
+	if (joints)
+		joints->prev = joint;
+	joints = joint;
+
+	Rigidbody* bodyA = joint->bodyA;
+	Rigidbody* bodyB = joint->bodyB;
+
+	joint->refFromA.joint = joint;
+	joint->refFromA.other = nullptr;
+	joint->refFromA.next = bodyA->joints;
+	joint->refFromA.prev = nullptr;
+	if (bodyA->joints)
+		bodyA->joints->prev = &joint->refFromA;
+	bodyA->joints = &joint->refFromA;
+
+	if (bodyB)
+	{
+		joint->refFromA.other = bodyB;
+		joint->refFromB.joint = joint;
+		joint->refFromB.other = bodyA;
+		joint->refFromB.next = bodyB->joints;
+		joint->refFromB.prev = nullptr;
+		if (bodyB->joints)
+			bodyB->joints->prev = &joint->refFromB;
+		bodyB->joints = &joint->refFromB;
+	}
+
+	++jointCount;
+	return joint;
+}
+
+void World::deleteJoint(Joint* joint)
+{
+	if (joint->prev == nullptr)
+	{
+		joints = joint->next;
+		if (joint->next)
+			joint->next->prev = nullptr;
+	}
+	else
+	{
+		joint->prev->next = joint->next;
+		if (joint->next)
+			joint->next->prev = joint->prev;
+	}
+
+	if (joint->refFromA.prev == nullptr)
+	{
+		joint->bodyA->joints = joint->refFromA.next;
+		if (joint->refFromA.next)
+			joint->refFromA.next->prev = nullptr;
+	}
+	else
+	{
+		joint->refFromA.prev->next = joint->refFromA.next;
+		if (joint->refFromA.next)
+			joint->refFromA.next->prev = joint->refFromA.prev;
+	}
+
+	if (joint->refFromB.prev == nullptr)
+	{
+		joint->bodyB->joints = joint->refFromB.next;
+		if (joint->refFromB.next)
+			joint->refFromB.next->prev = nullptr;
+	}
+	else
+	{
+		joint->refFromB.prev->next = joint->refFromB.next;
+		if (joint->refFromB.next)
+			joint->refFromB.next->prev = joint->refFromB.prev;
+	}
+
+	Joint::deleteJoint(&blockAllocator, joint);
+	--jointCount;
 }
 
 void World::saveIslandInfo(const IslandInfo& info)

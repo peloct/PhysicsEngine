@@ -1,5 +1,4 @@
 #include"peIsland.h"
-#include"peSISolver.h"
 #include"peNNCGSolver.h"
 #include"../memory/peStackAllocator.h"
 #include"../peRigidbody.h"
@@ -13,15 +12,17 @@
 const float32 sleepLinearVelTolSqr = 0.01f * 0.01f;
 const float32 sleepAngularVelTolSqr = SLEEP_ANGULARVEL_TOL * SLEEP_ANGULARVEL_TOL;
 
-Island::Island(int32 bodyCapacity, int32 contactCapacity, StackAllocator* stackAllocator)
+Island::Island(int32 bodyCapacity, int32 contactCapacity, int32 jointCapacity, StackAllocator* stackAllocator)
 {
 	this->stackAllocator = stackAllocator;
 
 	rigidbodyCount = 0;
 	contactCount = 0;
+	jointCount = 0;
 
 	rigidbodies = (Rigidbody**)stackAllocator->allocate(bodyCapacity * sizeof(Rigidbody*));
 	contacts = (Contact**)stackAllocator->allocate(contactCapacity * sizeof(Contact*));
+	joints = (Joint * *)stackAllocator->allocate(jointCapacity * sizeof(Joint*));
 	positions = (Vector3*)stackAllocator->allocate(bodyCapacity * sizeof(Vector3));
 	orientations = (Quaternion*)stackAllocator->allocate(bodyCapacity * sizeof(Quaternion));
 	linearVelocities = (Vector3*)stackAllocator->allocate(bodyCapacity * sizeof(Vector3));
@@ -34,6 +35,7 @@ Island::~Island()
 	stackAllocator->free(linearVelocities);
 	stackAllocator->free(orientations);
 	stackAllocator->free(positions);
+	stackAllocator->free(joints);
 	stackAllocator->free(contacts);
 	stackAllocator->free(rigidbodies);
 }
@@ -72,32 +74,29 @@ IslandInfo Island::solve(const TimeStep& timeStep, const Vector3& gravity, const
 		angularVelocities[i] = w;
 	}
 
-	NNCGSolverDef solverDef;
+	NNCGSolverData solverDef;
+
+	solverDef.stackAllocator = stackAllocator;
 	solverDef.timeStep = timeStep;
+	solverDef.prevStepInfo = islandInfo.isValid ? islandInfo.nncgSolverPrevStepInfo : NNCGSolverStepInfo();
+
 	solverDef.rigidbodyCount = rigidbodyCount;
 	solverDef.contactCount = contactCount;
-	solverDef.contactsInIsland = contacts;
-	solverDef.stackAllocator = stackAllocator;
+	solverDef.jointCount = jointCount;
+
 	solverDef.positions = positions;
 	solverDef.orientations = orientations;
 	solverDef.linearVelocities = linearVelocities;
 	solverDef.angularVelocities = angularVelocities;
-	solverDef.prevStepInfo = islandInfo.isValid ? islandInfo.nncgSolverPrevStepInfo : NNCGSolverStepInfo();
+	solverDef.contactsInIsland = contacts;
+	solverDef.jointsInIsland = joints;
 
 	NNCGSolver solver(solverDef);
-
-	solver.initVelocityConstraints();
-
-	solver.warmStart();
 
 	timer.reset();
 
 	for (int i = 0; i < timeStep.velocityIteration; ++i)
-	{
 		solver.solveVelocityConstraints();
-		if (solver.hit)
-			++profile->hitCount;
-	}
 
 	profile->solvingVC += timer.getMilliseconds();
 	ret.nncgSolverPrevStepInfo = solver.getStepInfo();

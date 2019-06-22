@@ -12,6 +12,6 @@ private:
 
 	BoxBoxContact(Fixture* fixtureA, Fixture* fixtureB) : Contact(fixtureA, fixtureB) {}
 
-	static Contact* createFunc(BlockAllocator* boxAllocator, Fixture* fixtureA, Fixture* fixtureB);
-	static void deleteFunc(BlockAllocator* boxAllocator, Contact* contact);
+	static Contact* createFunc(BlockAllocator* blockAllocator, Fixture* fixtureA, Fixture* fixtureB);
+	static void deleteFunc(BlockAllocator* blockAllocator, Contact* contact);
 };

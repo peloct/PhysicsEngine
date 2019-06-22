@@ -3,6 +3,7 @@
 #include"common/peSettings.h"
 #include"common/peMath.h"
 #include"peRigidbody.h"
+#include"joint/peJoint.h"
 #include"collision/peContactManager.h"
 #include"memory/peStackAllocator.h"
 #include"memory/peBlockAllocator.h"
@@ -19,6 +20,9 @@ public:
 	void step(float32 dt, int32 velocityIteration, int32 positionIteration);
 	Rigidbody* createBody(const RigidbodyDef& def);
 	void deleteBody(Rigidbody* body);
+	Joint* createJoint(const JointDef& def);
+	void deleteJoint(Joint* joint);
+
 	void setGravity(const Vector3& gravity)
 	{
 		this->gravity = gravity;
@@ -32,6 +36,8 @@ private:
 
 	int32 rigidbodyCount;
 	Rigidbody* rigidbodies;
+	int32 jointCount;
+	Joint* joints;
 
 	Vector3 gravity;
 	float32 prevDTInv;

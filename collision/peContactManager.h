@@ -6,7 +6,7 @@
 class ContactManager
 {
 public:
-	ContactManager(BlockAllocator* boxAllocator);
+	ContactManager(BlockAllocator* blockAllocator);
 	static void addContact(ContactManager* contactManager, Fixture* fixtureA, Fixture* fixtureB);
 	void removeContact(Contact* contact);
 	void updateContact(); // broadphase ¸¦ ½Ç½Ã
@@ -18,7 +18,7 @@ private:
 	friend class Debug;
 
 	BroadPhase broadPhase;
-	BlockAllocator* boxAllocator;
+	BlockAllocator* blockAllocator;
 	int32 contactCount;
 	Contact* contacts;
 };

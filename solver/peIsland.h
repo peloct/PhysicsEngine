@@ -6,6 +6,7 @@
 
 class Rigidbody;
 class Contact;
+class Joint;
 class StackAllocator;
 class Profile;
 
@@ -22,7 +23,7 @@ class Island
 {
 public:
 
-	Island(int32 bodyCapacity, int32 contactCapacity, StackAllocator* stackAllocator);
+	Island(int32 bodyCapacity, int32 contactCapacity, int32 jointCapacity, StackAllocator* stackAllocator);
 	~Island();
 	IslandInfo solve(const TimeStep& timeStep, const Vector3& gravity, const IslandInfo& islandInfo, Profile* profile);
 
@@ -30,6 +31,7 @@ public:
 	{
 		rigidbodyCount = 0;
 		contactCount = 0;
+		jointCount = 0;
 	}
 
 	int32 addRigidbody(Rigidbody* rigidbody)
@@ -46,6 +48,13 @@ public:
 		return id;
 	}
 
+	int32 addJoint(Joint* joint)
+	{
+		int32 id = jointCount++;
+		joints[id] = joint;
+		return id;
+	}
+
 private:
 
 	friend class World;
@@ -55,6 +64,9 @@ private:
 
 	int32 contactCount;
 	Contact** contacts;
+
+	int32 jointCount;
+	Joint** joints;
 
 	Vector3* positions;
 	Quaternion* orientations;

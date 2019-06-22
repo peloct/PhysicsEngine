@@ -9,3 +9,5 @@ typedef char int8;
 
 void* peAlloc(int32 size);
 void peFree(void* mem);
+
+#define NULL_ID -1

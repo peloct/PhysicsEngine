@@ -8,8 +8,8 @@ class BlockAllocator;
 class Rigidbody;
 class Fixture;
 
-typedef Contact* ContactCreateFunc(BlockAllocator* boxAllocator, Fixture* fixtureA, Fixture* fixtureB);
-typedef void ContactDestroyFunc(BlockAllocator* boxAllocator, Contact* contact);
+typedef Contact* ContactCreateFunc(BlockAllocator* blockAllocator, Fixture* fixtureA, Fixture* fixtureB);
+typedef void ContactDestroyFunc(BlockAllocator* blockAllocator, Contact* contact);
 
 enum ContactFaceOwner
 {
@@ -40,9 +40,8 @@ struct ContactCacheKey
 	}
 };
 
-class ContactRef
+struct ContactRef
 {
-public:
 	ContactRef() : contact(nullptr), other(nullptr), prev(nullptr), next(nullptr) {}
 
 	Contact* contact;
@@ -62,7 +61,6 @@ class Contact
 protected:
 	friend class World;
 	friend class ContactManager;
-	friend class SISolver;
 	friend class NNCGSolver;
 	friend class Debug;
 
@@ -114,6 +112,6 @@ protected:
 	static ContactFactory factoryMap[Shape::Type::shapeCount][Shape::Type::shapeCount];
 	static bool isFactoryInitialized;
 
-	static Contact* createContact(BlockAllocator* boxAllocator, Fixture* fixtureA, Fixture* fixtureB);
-	static void deleteContact(BlockAllocator* boxAllocator, Contact* contact);
+	static Contact* createContact(BlockAllocator* blockAllocator, Fixture* fixtureA, Fixture* fixtureB);
+	static void deleteContact(BlockAllocator* blockAllocator, Contact* contact);
 };

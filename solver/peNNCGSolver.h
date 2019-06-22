@@ -1,8 +1,64 @@
 #pragma once
 
-#include"peContactSolver.h"
+#include"..//common/peTimeStep.h"
+#include"..//collision/peContact.h"
 
 class StackAllocator;
+class Joint;
+
+struct Jsp
+{
+	Vector3 linearA;
+	Vector3 angularA;
+	Vector3 linearB;
+	Vector3 angularB;
+};
+
+struct Bsp
+{
+	Vector3 linearA;
+	Vector3 angularA;
+	Vector3 linearB;
+	Vector3 angularB;
+};
+
+struct VelocityConstraint
+{
+	void* cacheRef;
+	bool doSolve;
+
+	int32 indexA;
+	int32 indexB;
+	float32 desiredDelV;
+	float32 impulse;
+	float32 minImpulse;
+	float32 maxImpulse;
+	int32 dependentImpulse;
+
+	Jsp j;
+	Bsp b;
+	float32 d;
+
+	float32 fGradient;
+	float32 searchDir;
+};
+
+struct ContactPositionConstraint
+{
+	ContactFaceOwner faceOwner;
+	int32 indexA;
+	int32 indexB;
+	float32 invMassA;
+	float32 invMassB;
+	Matrix3x3 invIA;
+	Matrix3x3 invIB;
+	Vector3 localCenterA;
+	Vector3 localCenterB;
+	Vector3 localNormal;
+	Vector3 localPlanePoint;
+	int32 contactPointCount;
+	Vector3 contactPoints[8];
+};
 
 struct NNCGSolverStepInfo
 {
@@ -16,33 +72,34 @@ struct NNCGSolverStepInfo
 	float32 prevGradientMagSqr;
 };
 
-struct NNCGSolverDef
+struct NNCGSolverData
 {
-	int32 rigidbodyCount;
-	TimeStep timeStep;
-	int32 contactCount;
-	Contact** contactsInIsland;
 	StackAllocator* stackAllocator;
+	TimeStep timeStep;
+	NNCGSolverStepInfo prevStepInfo;
+
+	int32 rigidbodyCount;
+	int32 contactCount;
+	int32 jointCount;
+
 	Vector3* positions;
 	Quaternion* orientations;
 	Vector3* linearVelocities;
 	Vector3* angularVelocities;
-	NNCGSolverStepInfo prevStepInfo;
+	Contact** contactsInIsland;
+	Joint** jointsInIsland;
 };
 
-class NNCGSolver : public ContactSolver
+class NNCGSolver
 {
 public:
-	NNCGSolver(const NNCGSolverDef& def);
+	NNCGSolver(const NNCGSolverData& data);
 	~NNCGSolver();
 
-	bool hit;
-	void initVelocityConstraints() override;
-	void warmStart() override;
-	void solveVelocityConstraints() override;
-	void saveImpulse() override;
-	void applyeDelta() override;
-	bool solvePositionConstraints() override;
+	void solveVelocityConstraints();
+	void saveImpulse();
+	void applyeDelta();
+	bool solvePositionConstraints();
 
 	NNCGSolverStepInfo getStepInfo() const
 	{
@@ -53,21 +110,28 @@ public:
 	}
 
 private:
-	struct ContactVelocityConstraintPoint;
-	struct ContactVelocityConstraint;
-	struct ContactPositionConstraint;
+	struct ContactVCCacheRef;
 
 	StackAllocator* stackAllocator;
 
-	int32 contactCount;
 	Contact** contacts;
+
+	int32 jointCount;
+	Joint** joints;
+
 	Vector3* positions;
 	Quaternion* orientations;
 	Vector3* linearVelocities;
 	Vector3* angularVelocities;
 
+	int32 jointVCCount;
+	int32 contactVCCount;
 	int32 velConstraintsCount;
-	ContactVelocityConstraint* velocityConstraints;
+	VelocityConstraint* velocityConstraints;
+	ContactVCCacheRef* contactVCCacheRefs;
+
+	int32 contactPCCount;
+	ContactPositionConstraint* positionConstraints;
 
 	int32 rigidbodyCount;
 	Vector3* dLinearV;
@@ -76,8 +140,6 @@ private:
 	float32 curGradientMagSqr;
 	float32 prevGradientMagSqr;
 
-	int32 posConstraintsCount;
-	ContactPositionConstraint* positionConstraints;
 
 	void PGS();
 };
