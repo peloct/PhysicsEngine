@@ -91,6 +91,11 @@ IslandInfo Island::solve(const TimeStep& timeStep, const Vector3& gravity, const
 	solverDef.contactsInIsland = contacts;
 	solverDef.jointsInIsland = joints;
 
+#ifdef DEBUG_LOG
+	peLog("=== Island::solve ===\n");
+	peLog("bCount : %d, cCount : %d, jCount : %d\n", rigidbodyCount, contactCount, jointCount);
+#endif // DEBUG_LOG
+
 	NNCGSolver solver(solverDef);
 
 	timer.reset();
@@ -172,10 +177,10 @@ IslandInfo Island::solve(const TimeStep& timeStep, const Vector3& gravity, const
 		for (int i = 0; i < rigidbodyCount; ++i)
 		{
 			Rigidbody* each = rigidbodies[i];
-
+	
 			if (each->bodyType == RigidbodyType::staticBody)
 				continue;
-
+	
 			each->setAwake(false);
 		}
 	}

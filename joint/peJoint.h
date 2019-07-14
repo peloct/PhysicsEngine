@@ -13,7 +13,7 @@ class ContactPositionConstraint;
 
 enum JointType
 {
-	eSpringJoint,
+	eDistanceJoint,
 	eTypeCount
 };
 

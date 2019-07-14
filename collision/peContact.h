@@ -76,8 +76,10 @@ protected:
 		restitution = calcRestitution();
 		islandID = -1;
 		isChanged = false;
+		guid = nextGUID++;
 	}
 
+	int32 guid;
 	Fixture* fixtureA;
 	Fixture* fixtureB;
 
@@ -114,4 +116,6 @@ protected:
 
 	static Contact* createContact(BlockAllocator* blockAllocator, Fixture* fixtureA, Fixture* fixtureB);
 	static void deleteContact(BlockAllocator* blockAllocator, Contact* contact);
+
+	static int32 nextGUID;
 };

@@ -114,7 +114,7 @@ public:
 	const Vector3* getVertices() const { return vertices; }
 
 private:
-	friend Renderer;
+	friend class Mesh;
 
 	float32 x, y, z;
 	Face faces[6];

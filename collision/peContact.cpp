@@ -6,6 +6,7 @@
 
 ContactFactory Contact::factoryMap[Shape::Type::shapeCount][Shape::Type::shapeCount];
 bool Contact::isFactoryInitialized = false;
+int32 Contact::nextGUID = 0;
 
 float32 Contact::calcFriction() const
 {

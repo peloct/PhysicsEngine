@@ -260,7 +260,9 @@ void BoxBoxContact::evaluate()
 	const Vector3* verticesA = ((Box*)fixtureA->getShape())->getVertices();
 	const Vector3* verticesB = ((Box*)fixtureB->getShape())->getVertices();
 
-	if ((fixtureA->getBodyPosition() - fixtureB->getBodyPosition()).sqrMagnitude() < 0.00001f)
+	Vector3 relPos = fixtureB->getBodyPosition() - fixtureA->getBodyPosition();
+
+	if (relPos.sqrMagnitude() < 0.00001f)
 		return;
 
 	const Face* faceA = nullptr;
@@ -298,6 +300,8 @@ void BoxBoxContact::evaluate()
 
 		Vector3 normal = Vector3::cross(aDir, bDir);
 		normal.normalize();
+		if (Vector3::dot(relPos, normal) < 0)
+			normal *= -1;
 
 		Vector3 aTanDir = Vector3::cross(aDir, normal);
 		Vector3 bTanDir = Vector3::cross(bDir, normal);

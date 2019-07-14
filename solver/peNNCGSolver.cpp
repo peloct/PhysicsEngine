@@ -5,10 +5,6 @@
 #include"../peRigidbody.h"
 #include"../joint/peJoint.h"
 
-#define BOUNCE_THRESHOLD -1.0f
-#define BAUMGARTE 0.2f
-#define LINEAR_SLOP 0.005f
-
 struct NNCGSolver::ContactVCCacheRef
 {
 	ContactPoint* cp;
@@ -17,6 +13,10 @@ struct NNCGSolver::ContactVCCacheRef
 
 NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 {
+#ifdef DEBUG_LOG
+	peLog("   === NNCGSolver Init ===\n");
+#endif
+
 	stackAllocator = data.stackAllocator;
 
 	int32 contactCount = data.contactCount;
@@ -114,6 +114,16 @@ NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 		dir[1] = bodyLocalToWorldA.transformDirection(contact->localTangent1);
 		dir[2] = bodyLocalToWorldA.transformDirection(contact->localTangent2);
 
+#ifdef DEBUG_LOG 	
+		peLog("   (%d)th contact [%d]\n", i, contact->guid);
+		peLog("   bodyA : %d, bodyB : %d\n", rigidbodyA->guid, rigidbodyB->guid);
+		peLog("   bodyA index : %d, bodyB index : %d\n", indexA, indexB);
+		peLog("   pA : (%f, %f, %f), pB : (%f, %f, %f)\n", pA.x, pA.y, pA.z, pB.x, pB.y, pB.z);
+		peLog("   vA : (%f, %f, %f), vB : (%f, %f, %f)\n", vA.x, vA.y, vA.z, vB.x, vB.y, vB.z);
+		peLog("   wA : (%f, %f, %f), wB : (%f, %f, %f)\n", wA.x, wA.y, wA.z, wB.x, wB.y, wB.z);
+		peLog("   n : (%f, %f, %f), t1 : (%f, %f, %f), t2 : (%f, %f, %f)\n", dir[0].x, dir[0].y, dir[0].z, dir[1].x, dir[1].y, dir[1].z, dir[2].x, dir[2].y, dir[2].z);
+#endif
+
 		ContactPositionConstraint* pc = positionConstraints + i;
 
 		pc->faceOwner = contact->contactFaceOwner;
@@ -147,6 +157,12 @@ NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 			Vector3 rA = worldPoint - pA;
 			Vector3 rB = worldPoint - pB;
 
+#ifdef DEBUG_LOG
+			peLog("   contactPoint [%d]\n", j);
+			peLog("      cached impulse n : (%f), t1 : (%f), t2 : (%f)\n", cachedImpulse[0], cachedImpulse[1], cachedImpulse[2]);
+			peLog("      worldPoint : (%f, %f, %f)\n", worldPoint.x, worldPoint.y, worldPoint.z);
+#endif // DEBUG_LOG
+
 			for (int k = 0; k < 3; ++k)
 			{
 				VelocityConstraint* vc = velocityConstraints + vcIndex;
@@ -166,7 +182,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 				jsp.angularA = Vector3::cross(rA, dirA);
 				jsp.linearB = dirB;
 				jsp.angularB = Vector3::cross(rB, dirB);
-
+				
 				Bsp& bsp = vc->b;
 
 				bsp.linearA = invMassA * jsp.linearA;
@@ -188,6 +204,7 @@ NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 					+ Vector3::dot(jsp.angularA, bsp.angularA)
 					+ Vector3::dot(jsp.linearB, bsp.linearB)
 					+ Vector3::dot(jsp.angularB, bsp.angularB);
+
 
 				vc->indexA = indexA;
 				vc->indexB = indexB;
@@ -218,6 +235,26 @@ NNCGSolver::NNCGSolver(const NNCGSolverData& data)
 				vc->fGradient = fGradient[k];
 				vc->searchDir = direction[k];
 
+#ifdef DEBUG_LOG
+				peLog("      vel constraint [%d]\n", vcIndex);
+				peLog("         dir index [%d]\n", k);
+				peLog("         dirB : (%f, %f, %f)\n", dirB.x, dirB.y, dirB.z);
+				peLog("         jsp.linearA : (%f, %f, %f)\n", jsp.linearA.x, jsp.linearA.y, jsp.linearA.z);
+				peLog("         jsp.angularA : (%f, %f, %f)\n", jsp.angularA.x, jsp.angularA.y, jsp.angularA.z);
+				peLog("         jsp.linearB : (%f, %f, %f)\n", jsp.linearB.x, jsp.linearB.y, jsp.linearB.z);
+				peLog("         jsp.angularB : (%f, %f, %f)\n", jsp.angularB.x, jsp.angularB.y, jsp.angularB.z);
+				peLog("         bsp.linearA : (%f, %f, %f)\n", bsp.linearA.x, bsp.linearA.y, bsp.linearA.z);
+				peLog("         bsp.angularA : (%f, %f, %f)\n", bsp.angularA.x, bsp.angularA.y, bsp.angularA.z);
+				peLog("         bsp.linearB : (%f, %f, %f)\n", bsp.linearB.x, bsp.linearB.y, bsp.linearB.z);
+				peLog("         bsp.angularB : (%f, %f, %f)\n", bsp.angularB.x, bsp.angularB.y, bsp.angularB.z);
+				peLog("         d : %f\n", vc->d);
+				peLog("         desiredDelV : %f\n", vc->desiredDelV);
+				peLog("         dLinearV[indexA] : (%f, %f, %f)\n", dLinearV[indexA].x, dLinearV[indexA].y, dLinearV[indexA].z);
+				peLog("         dAngularV[indexA] : (%f, %f, %f)\n", dAngularV[indexA].x, dAngularV[indexA].y, dAngularV[indexA].z);
+				peLog("         dLinearV[indexB] : (%f, %f, %f)\n", dLinearV[indexB].x, dLinearV[indexB].y, dLinearV[indexB].z);
+				peLog("         dAngularV[indexB] : (%f, %f, %f)\n", dAngularV[indexB].x, dAngularV[indexB].y, dAngularV[indexB].z);
+#endif
+
 				++vcIndex;
 			}
 		}
@@ -235,6 +272,10 @@ NNCGSolver::~NNCGSolver()
 
 void NNCGSolver::PGS()
 {
+#ifdef DEBUG_LOG
+	peLog("   === NNCGSolver PGS ===\n");
+#endif // DEBUG_LOG
+
 	for (int i = 0; i < velConstraintsCount; ++i)
 	{
 		VelocityConstraint* vc = velocityConstraints + i;
@@ -252,6 +293,7 @@ void NNCGSolver::PGS()
 			delV += Vector3::dot(vc->j.linearB, dLinearV[indexB]) + Vector3::dot(vc->j.angularB, dAngularV[indexB]);
 
 		float32 dImpulse = (vc->desiredDelV - delV) / vc->d;
+
 		float32 impulse0 = vc->impulse;
 
 		float32 minImpulse = vc->minImpulse;
@@ -266,17 +308,32 @@ void NNCGSolver::PGS()
 
 		float32 impulse = peClamp(impulse0 + dImpulse, minImpulse, maxImpulse);
 		dImpulse = impulse - impulse0;
+
 		vc->impulse = impulse;
 		vc->fGradient = -dImpulse;
 		curGradientMagSqr += dImpulse * dImpulse;
 
 		dLinearV[indexA] += dImpulse * b.linearA;
 		dAngularV[indexA] += dImpulse * b.angularA;
+
 		if (indexB != NULL_ID)
 		{
 			dLinearV[indexB] += dImpulse * b.linearB;
 			dAngularV[indexB] += dImpulse * b.angularB;
 		}
+
+#ifdef DEBUG_LOG
+		peLog("   vel constraint [%d]\n", i);
+		peLog("      indexA : %d, indexB : %d\n", indexA, indexB);
+		peLog("      delV : %f\n", delV);
+		peLog("      dImpulse : %f\n", dImpulse);
+		peLog("      impulse : %f\n", impulse);
+		peLog("      solved delV : %f\n", delV);
+		peLog("      dLinearV[indexA] : (%f, %f, %f)\n", dLinearV[indexA].x, dLinearV[indexA].y, dLinearV[indexA].z);
+		peLog("      dAngularV[indexA] : (%f, %f, %f)\n", dAngularV[indexA].x, dAngularV[indexA].y, dAngularV[indexA].z);
+		peLog("      dLinearV[indexB] : (%f, %f, %f)\n", dLinearV[indexB].x, dLinearV[indexB].y, dLinearV[indexB].z);
+		peLog("      dAngularV[indexB] : (%f, %f, %f)\n", dAngularV[indexB].x, dAngularV[indexB].y, dAngularV[indexB].z);
+#endif // DEBUG_LOG
 	}
 }
 
@@ -285,7 +342,7 @@ void NNCGSolver::solveVelocityConstraints()
 	if (prevGradientMagSqr > 0.0f)
 	{
 		float32 beta = curGradientMagSqr / prevGradientMagSqr;
-
+	
 		if (beta > 1)
 		{
 			for (int i = 0; i < velConstraintsCount; ++i)
@@ -304,12 +361,12 @@ void NNCGSolver::solveVelocityConstraints()
 				const Bsp& b = vc->b;
 				int32 indexA = vc->indexA;
 				int32 indexB = vc->indexB;
-
+	
 				dLinearV[indexA] += searchImpulse * b.linearA;
 				dAngularV[indexA] += searchImpulse * b.angularA;
 				dLinearV[indexB] += searchImpulse * b.linearB;
 				dAngularV[indexB] += searchImpulse * b.angularB;
-
+	
 				vc->searchDir = searchImpulse - vc->fGradient;
 			}
 		}
@@ -322,7 +379,7 @@ void NNCGSolver::solveVelocityConstraints()
 			vc->searchDir = -vc->fGradient;
 		}
 	}
-
+	
 	prevGradientMagSqr = curGradientMagSqr;
 	curGradientMagSqr = 0.0f;
 

@@ -1,6 +1,6 @@
 #include"peJoint.h"
 #include"../memory/peBlockAllocator.h"
-#include"peSpringJoint.h"
+#include"peDistanceJoint.h"
 #include<new>
 
 Joint* Joint::createJoint(BlockAllocator* blockAllocator, const JointDef& def)
@@ -8,9 +8,9 @@ Joint* Joint::createJoint(BlockAllocator* blockAllocator, const JointDef& def)
 	void* mem = nullptr;
 	switch (def.jointType)
 	{
-	case JointType::eSpringJoint:
-		mem = blockAllocator->allocate(sizeof(SpringJoint));
-		return new (mem)SpringJoint(static_cast<const SpringJointDef&>(def));
+	case JointType::eDistanceJoint:
+		mem = blockAllocator->allocate(sizeof(DistanceJoint));
+		return new (mem)DistanceJoint(static_cast<const DistanceJointDef&>(def));
 	} 
 
 	return nullptr;
@@ -21,8 +21,8 @@ void Joint::deleteJoint(BlockAllocator* blockAllocator, Joint* joint)
 	joint->~Joint();
 	switch (joint->jointType)
 	{
-	case JointType::eSpringJoint:
-		blockAllocator->free(joint, sizeof(SpringJoint));
+	case JointType::eDistanceJoint:
+		blockAllocator->free(joint, sizeof(DistanceJoint));
 	default:
 		break;
 	}

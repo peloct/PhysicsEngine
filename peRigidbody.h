@@ -72,7 +72,7 @@ private:
 
 	friend class Debug;
 
-	friend class SpringJoint;
+	friend class DistanceJoint;
 
 	RigidbodyType bodyType;
 

@@ -2,21 +2,28 @@
 
 #include"peJoint.h"
 
-struct SpringJointDef : public JointDef
+struct DistanceJointDef : public JointDef
 {
-	SpringJointDef() :  JointDef(JointType::eSpringJoint), bodyA(nullptr), bodyB(nullptr), localAnchorA(), localAnchorB(), spring(0.0f) {}
+	DistanceJointDef() :  JointDef(JointType::eDistanceJoint), bodyA(nullptr), bodyB(nullptr), localAnchorA(), localAnchorB(),
+		targetDistance(-1.0f), spring(0.0f), damping(0.0f), isMin(false), isMax(false), restitution(0.0f) {}
 
 	Rigidbody* bodyA;
 	Rigidbody* bodyB;
 	Vector3 localAnchorA;
 	Vector3 localAnchorB;
+
+	float32 targetDistance;
 	float32 spring;
+	float32 damping;
+	bool isMin;
+	bool isMax;
+	float32 restitution;
 };
 
-class SpringJoint : public Joint
+class DistanceJoint : public Joint
 {
 public:
-	SpringJoint(const SpringJointDef& def);
+	DistanceJoint(const DistanceJointDef& def);
 	
 protected:
 	int32 getVelConstraintCount() const override;
@@ -34,6 +41,10 @@ private:
 	float32 searchDir;
 	float32 impulse;
 
+	float32 targetDistance;
+	float32 damping;
 	float32 spring;
-	float32 referenceDistance;
+	bool isMin;
+	bool isMax;
+	float32 restitution;
 };
